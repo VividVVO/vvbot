@@ -1,0 +1,38 @@
+# HTTP Server
+[server]
+	Address     = ":8199"
+	ServerRoot  = "public"
+	ServerAgent = "gf-app"
+	LogPath     = "/tmp/log/gf-app/server"
+
+# Logger.
+[logger]
+    Path        = "/tmp/log/gf-app"
+    Level       = "all"
+    Stdout      = true
+
+# Template.
+[viewer]
+    Path        = "template"
+    DefaultFile = "index.html"
+    Delimiters  =  ["${", "}"]
+
+# Database.
+[database]
+    link  = "sqlite:vvbot.db"
+    debug = true
+    # Database logger.
+    [database.logger]
+        Path   = "/tmp/log/github.com/vivid-vvo/vvbot/sql"
+        Level  = "all"
+        Stdout = true
+
+
+[bot]
+    botname = "iotqq"
+
+[iotbot]
+    site = "127.0.0.1"
+    port = 8888
+    qq = "1550517175"
+    prefix = "#"
