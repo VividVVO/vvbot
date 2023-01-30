@@ -11,17 +11,17 @@ import (
 
 // Entity is the golang structure for table clan_group.
 type Entity struct {
-    GroupId      int    `orm:"group_id"      json:"group_id"`      //   
-    GroupName    string `orm:"group_name"    json:"group_name"`    //   
-    Privacy      int    `orm:"privacy"       json:"privacy"`       //   
-    CreatorQqid  int    `orm:"creator_qqid"  json:"creator_qqid"`  //   
-    GameServer   string `orm:"game_server"   json:"game_server"`   //   
-    Notification string `orm:"notification"  json:"notification"`  //   
-    GvgId        int    `orm:"gvg_id"        json:"gvg_id"`        //   
-    BindQqGroup  int    `orm:"bind_qq_group" json:"bind_qq_group"` //   
-    Apikey       string `orm:"apikey"        json:"apikey"`        //   
-    CreateTime   int    `orm:"create_time"   json:"create_time"`   //   
-    Deleted      int    `orm:"deleted"       json:"deleted"`       //   
+	GroupId      int    `orm:"group_id"      json:"group_id"`      //
+	GroupName    string `orm:"group_name"    json:"group_name"`    //
+	Privacy      int    `orm:"privacy"       json:"privacy"`       //
+	CreatorQqid  int64  `orm:"creator_qqid"  json:"creator_qqid"`  //
+	GameServer   string `orm:"game_server"   json:"game_server"`   //
+	Notification string `orm:"notification"  json:"notification"`  //
+	GvgId        int    `orm:"gvg_id"        json:"gvg_id"`        //
+	BindQqGroup  int64  `orm:"bind_qq_group" json:"bind_qq_group"` //
+	Apikey       string `orm:"apikey"        json:"apikey"`        //
+	CreateTime   int64  `orm:"create_time"   json:"create_time"`   //
+	Deleted      int    `orm:"deleted"       json:"deleted"`       //
 }
 
 // OmitEmpty sets OPTION_OMITEMPTY option for the model, which automatically filers

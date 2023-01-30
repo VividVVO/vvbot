@@ -14,7 +14,7 @@ import (
 )
 
 // 获取今日报刀次数
-func GetDayChallenge(qqid int, gvgid int, gameServer string) (int, error) {
+func GetDayChallenge(qqid int64, gvgid int, gameServer string) (int, error) {
 	// 每天5点刷新
 	dayTimeS := time2.GetPcrDayStartTimeToUnix(gameServer)
 	dayTimeE := time2.GetPcrDayEndTimeToUnix(gameServer)
@@ -26,7 +26,7 @@ func GetDayChallenge(qqid int, gvgid int, gameServer string) (int, error) {
 }
 
 // 获取指定时间内报刀次数
-func GetChallengeAtTime(qqid int, gvgid int, timeS int64, timeE int64) (int, error) {
+func GetChallengeAtTime(qqid int64, gvgid int, timeS int64, timeE int64) (int, error) {
 	num, err := FindCount("qqid=? and gvg_id=? and (is_continue=0 or is_surplus=1) and challenge_time>=? and challenge_time<=? and is_delete=0 and repair_type=0", qqid, gvgid, timeS, timeE)
 	if err != nil {
 		return 0, errors.New("内部错误")
@@ -42,10 +42,10 @@ func ReportChallenge(entity Entity) error {
 }
 
 // 获取今日最近一刀
-func GetDayLostChallenge(qqid int, gvgId int, gameServer string) (*Entity, error) {
+func GetDayLostChallenge(qqid int64, gvgId int, gameServer string) (*Entity, error) {
 	dayTimeS := time2.GetPcrDayStartTimeToUnix(gameServer)
 	dayTimeE := time2.GetPcrDayEndTimeToUnix(gameServer)
-	gvgChallenge, err := Model.Order("challenge_time desc").FindOne("gvg_id=? and qqid=? and challenge_time>=? and challenge_time<=? and is_delete=0 and repair_type=0", gvgId, qqid, dayTimeS, dayTimeE)
+	gvgChallenge, err := Model.Order("challenge_id desc").FindOne("gvg_id=? and qqid=? and challenge_time>=? and challenge_time<=? and is_delete=0 and repair_type=0", gvgId, qqid, dayTimeS, dayTimeE)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
@@ -53,10 +53,10 @@ func GetDayLostChallenge(qqid int, gvgId int, gameServer string) (*Entity, error
 }
 
 // 获取昨日最近一刀
-func GetYesterdayLostChallenge(qqid int, gvgId int, gameServer string) (*Entity, error) {
+func GetYesterdayLostChallenge(qqid int64, gvgId int, gameServer string) (*Entity, error) {
 	dayTimeS := time2.GetPcrYesterdayStartTimeToUnix(gameServer)
 	dayTimeE := time2.GetPcrYesterdayEndTimeToUnix(gameServer)
-	gvgChallenge, err := Model.Order("challenge_time desc").FindOne("gvg_id=? and qqid=? and challenge_time>=? and challenge_time<=? and is_delete=0 and repair_type=0", gvgId, qqid, dayTimeS, dayTimeE)
+	gvgChallenge, err := Model.Order("challenge_id desc").FindOne("gvg_id=? and qqid=? and challenge_time>=? and challenge_time<=? and is_delete=0 and repair_type=0", gvgId, qqid, dayTimeS, dayTimeE)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
@@ -64,8 +64,8 @@ func GetYesterdayLostChallenge(qqid int, gvgId int, gameServer string) (*Entity,
 }
 
 // 获取最近一刀撤销的刀
-func GetLostChallengeToBack(qqid int, gvgId int) (*Entity, error) {
-	gvgChallenge, err := Model.Order("challenge_time desc").FindOne("gvg_id=? and qqid=? and is_delete=1 and repair_type=0", gvgId, qqid)
+func GetLostChallengeToBack(qqid int64, gvgId int) (*Entity, error) {
+	gvgChallenge, err := Model.Order("challenge_id desc").FindOne("gvg_id=? and qqid=? and is_delete=1 and repair_type=0", gvgId, qqid)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
@@ -73,10 +73,10 @@ func GetLostChallengeToBack(qqid int, gvgId int) (*Entity, error) {
 }
 
 // 获取今日最近一刀撤销的刀
-func GetDayLostChallengeToBack(qqid int, gvgId int, gameServer string) (*Entity, error) {
+func GetDayLostChallengeToBack(qqid int64, gvgId int, gameServer string) (*Entity, error) {
 	timeS := time2.GetPcrDayStartTimeToUnix(gameServer)
 	timeE := time2.GetPcrDayEndTimeToUnix(gameServer)
-	gvgChallenge, err := Model.Order("challenge_time desc").FindOne("gvg_id=? and qqid=? and challenge_time>=? and challenge_time<=? and is_delete=1 and repair_type=0", gvgId, qqid, timeS, timeE)
+	gvgChallenge, err := Model.Order("challenge_id desc").FindOne("gvg_id=? and qqid=? and challenge_time>=? and challenge_time<=? and is_delete=1 and repair_type=0", gvgId, qqid, timeS, timeE)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
@@ -84,10 +84,10 @@ func GetDayLostChallengeToBack(qqid int, gvgId int, gameServer string) (*Entity,
 }
 
 // 获取昨日最近一刀撤销的刀
-func GetYesterdayLostChallengeToBack(qqid int, gvgId int, gameServer string) (*Entity, error) {
+func GetYesterdayLostChallengeToBack(qqid int64, gvgId int, gameServer string) (*Entity, error) {
 	timeS := time2.GetPcrYesterdayStartTimeToUnix(gameServer)
 	timeE := time2.GetPcrYesterdayEndTimeToUnix(gameServer)
-	gvgChallenge, err := Model.Order("challenge_time desc").FindOne("gvg_id=? and qqid=? and challenge_time>=? and challenge_time<=? and is_delete=1 and repair_type=0", gvgId, qqid, timeS, timeE)
+	gvgChallenge, err := Model.Order("challenge_id desc").FindOne("gvg_id=? and qqid=? and challenge_time>=? and challenge_time<=? and is_delete=1 and repair_type=0", gvgId, qqid, timeS, timeE)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
@@ -95,17 +95,26 @@ func GetYesterdayLostChallengeToBack(qqid int, gvgId int, gameServer string) (*E
 }
 
 // 获取指定时间内最近一刀，不包括修正刀
-func GetLostChallengeAtTime(qqid int, gvgId int, timeS int64, timeE int64) (*Entity, error) {
-	gvgChallenge, err := Model.Order("challenge_time desc").FindOne("gvg_id=? and qqid=? and challenge_time>=? and challenge_time<=? and is_delete=0 and repair_type=0", gvgId, qqid, timeS, timeE)
+func GetLostChallengeAtTime(qqid int64, gvgId int, timeS int64, timeE int64) (*Entity, error) {
+	gvgChallenge, err := Model.Order("challenge_id desc").FindOne("gvg_id=? and qqid=? and challenge_time>=? and challenge_time<=? and is_delete=0 and repair_type=0", gvgId, qqid, timeS, timeE)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
 	return gvgChallenge, nil
 }
 
-// 获取指定QQ最近一刀，不包括修正刀
-func GetLostChallengeAtQQ(gvgId int, qqid int) (*Entity, error) {
-	gvgChallenge, err := Model.Order("challenge_time desc").FindOne("gvg_id=? and qqid=? and is_delete=0 and repair_type=0", gvgId, qqid)
+// GetChallengeAtQQ 获取指定QQ, 指定时间内所有刀，不包括修正刀
+func GetChallengeAtQQ(qqid int64, gvgId int, timeS int64, timeE int64) ([]*Entity, error) {
+	gvgChallenges, err := FindAll("gvg_id=? and qqid=? and challenge_time>=? and challenge_time<=? and is_delete=0 and repair_type=0", gvgId, qqid, timeS, timeE)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("内部错误"))
+	}
+	return gvgChallenges, nil
+}
+
+// 获取指定今日所有刀，不包括修正刀
+func GetLostChallengeAtQQ(gvgId int, qqid int64) (*Entity, error) {
+	gvgChallenge, err := Model.Order("challenge_id desc").FindOne("gvg_id=? and qqid=? and is_delete=0 and repair_type=0", gvgId, qqid)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
@@ -114,7 +123,7 @@ func GetLostChallengeAtQQ(gvgId int, qqid int) (*Entity, error) {
 
 // 获取最近一刀，不包括修正刀
 func GetLostChallenge(gvgId int) (*Entity, error) {
-	gvgChallenge, err := Model.Order("challenge_time desc").FindOne("gvg_id=? and is_delete=0 and repair_type=0", gvgId)
+	gvgChallenge, err := Model.Order("challenge_id desc").FindOne("gvg_id=? and is_delete=0 and repair_type=0", gvgId)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
@@ -122,8 +131,8 @@ func GetLostChallenge(gvgId int) (*Entity, error) {
 }
 
 // 获取最近的一刀包括删除的，不包括修正刀
-func GetLostChallengeDelete(gvgId int, qqid int) (*Entity, error) {
-	gvgChallenge, err := Model.Order("challenge_time desc").FindOne("gvg_id=? and qqid=? and repair_type=0", gvgId, qqid)
+func GetLostChallengeDelete(gvgId int, qqid int64) (*Entity, error) {
+	gvgChallenge, err := Model.Order("challenge_id desc").FindOne("gvg_id=? and qqid=? and repair_type=0", gvgId, qqid)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
@@ -131,8 +140,8 @@ func GetLostChallengeDelete(gvgId int, qqid int) (*Entity, error) {
 }
 
 // 获取最近撤销的一刀，不包括修正刀
-func GetLostBackChallenge(gvgId int, qqid int) (*Entity, error) {
-	gvgChallenge, err := Model.Order("challenge_time desc").FindOne("gvg_id=? and qqid=? and is_delete=1 and repair_type=0", gvgId, qqid)
+func GetLostBackChallenge(gvgId int, qqid int64) (*Entity, error) {
+	gvgChallenge, err := Model.Order("challenge_id desc").FindOne("gvg_id=? and qqid=? and is_delete=1 and repair_type=0", gvgId, qqid)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
@@ -154,13 +163,22 @@ func CancelBackChallenge(challengeId int) error {
 	return nil
 }
 
-// 获取所有战斗记录，不包括修正刀
+// GetAllChallenge 获取所有战斗记录，不包括修正刀
 func GetAllChallenge(gvgid int) ([]*Entity, error) {
-	entitys, err := FindAll("gvg_id=? and is_delete=0", gvgid)
+	entitys, err := FindAll("gvg_id=? and is_delete=0 and repair_type=0", gvgid)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
 	return entitys, nil
+}
+
+// GetAllChallengeAtTime 获取指定时间内所有战斗记录，不包括修正刀
+func GetAllChallengeAtTime(gvgId int, timeS int64, timeE int64) ([]*Entity, error) {
+	gvgChallenges, err := Model.Order("challenge_id asc").FindAll("gvg_id=? and challenge_time>=? and challenge_time<=? and is_delete=0 and repair_type=0", gvgId, timeS, timeE)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("内部错误"))
+	}
+	return gvgChallenges, nil
 }
 
 // 获取所有战斗记录，包括修正刀
@@ -174,9 +192,41 @@ func GetAllChallengeAndRepair(gvgid int) ([]*Entity, error) {
 
 // 获取最近一刀，包括修正刀
 func GetLostChallengeAndRepair(gvgId int) (*Entity, error) {
-	gvgChallenge, err := Model.Order("challenge_time desc").FindOne("gvg_id=? and is_delete=0", gvgId)
+	gvgChallenge, err := Model.Order("challenge_id desc").FindOne("gvg_id=? and is_delete=0", gvgId)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
 	return gvgChallenge, nil
+}
+
+// 删除成员战斗记录
+func DelUserChallenge(challengeId int) error {
+	_, err := Delete("challenge_id", challengeId)
+	if err != nil {
+		return errors.New(fmt.Sprintf("内部错误"))
+	}
+	return nil
+}
+
+// 修改成员战斗记录
+func ChangeUserChallenge(challengeId int, challengeDamage int, bossCycle string, bossNum string, meassage string) error {
+	_, err := Update(g.Map{
+		"challenge_damage": challengeDamage,
+		"boss_Num":         bossNum,
+		"boss_Cycle":       bossCycle,
+		"message":          meassage,
+	}, "challenge_id", challengeId)
+	if err != nil {
+		return errors.New(fmt.Sprintf("内部错误"))
+	}
+	return nil
+}
+
+// 获取指定战斗记录
+func GetlUserChallengeAtId(challengeId int) (*Entity, error) {
+	one, err := FindOne("challenge_id", challengeId)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("内部错误"))
+	}
+	return one, nil
 }

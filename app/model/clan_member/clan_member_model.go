@@ -24,17 +24,21 @@ var (
 	Model = &arModel{g.DB("default").Table(Table).Safe()}
 	// Columns defines and stores column names for table clan_member.
 	Columns = struct {
-		Qqid      string //   
-        GroupId   string //   
-        GameName  string //   
-        Role      string //   
-        JoinTime  string //
+		Qqid      string //
+		GroupId   string //
+		LoginTime string //
+		LoginIp   string //
+		GameName  string //
+		Role      string //
+		JoinTime  string //
 	}{
-		Qqid:     "qqid",       
-        GroupId:  "group_id",   
-        GameName: "game_name",  
-        Role:     "role",       
-        JoinTime: "join_time",
+		Qqid:      "qqid",
+		GroupId:   "group_id",
+		LoginTime: "login_time",
+		LoginIp:   "login_ip",
+		GameName:  "game_name",
+		Role:      "role",
+		JoinTime:  "join_time",
 	}
 )
 

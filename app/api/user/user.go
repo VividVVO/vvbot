@@ -38,9 +38,10 @@ func (c *Controller) SignUp(r *ghttp.Request) {
 }
 
 // 登录请求参数，用于前后端交互参数格式约定
-type SignInRequest struct {
+type LoginRequest struct {
 	QQid     string `v:"required#QQ号不能为空"`
-	Password string `v:"required#密码不能为空"`
+	Password string
+	Key      string
 }
 
 // @summary 用户登录接口
@@ -50,16 +51,15 @@ type SignInRequest struct {
 // @param   password formData string true "用户密码"
 // @router  /user/signin [POST]
 // @success 200 {object} response.JsonResponse "执行结果"
-func (c *Controller) SignIn(r *ghttp.Request) {
-	var data *SignInRequest
+func (c *Controller) Login(r *ghttp.Request) {
+	var data *LoginRequest
 	if err := r.Parse(&data); err != nil {
 		response.JsonExit(r, 1, err.Error())
 	}
-
-	if err := user.SignIn(r, data.QQid, data.Password); err != nil {
+	if data, err := user.Login(r, data.QQid, data.Password, data.Key); err != nil {
 		response.JsonExit(r, 1, err.Error())
 	} else {
-		response.JsonExit(r, 0, "ok")
+		response.JsonExit(r, 0, "ok", data)
 	}
 }
 
@@ -136,6 +136,69 @@ func (c *Controller) ChangePassword(r *ghttp.Request) {
 		response.JsonExit(r, 1, err.Error())
 	}
 	err := user.ChangePassword(r, &data.ChangePasswordInput)
+	if err != nil {
+		response.JsonExit(r, 1, err.Error())
+	}
+	response.JsonExit(r, 0, "")
+}
+
+// @summary 获取用户列表
+// @tags    用户服务
+// @produce json
+// @router  /user/getuserlist [GET]
+// @success 200 {object} response.JsonResponse "执行结果"
+func (c *Controller) GetUserList(r *ghttp.Request) {
+	userList, err := user.GetUserList()
+	if err != nil {
+		response.JsonExit(r, 1, err.Error())
+	}
+	response.JsonExit(r, 0, "", userList)
+}
+
+// 认证登录请求参数，用于前后端交互参数格式约定
+type ChangeUserDataRequest struct {
+	QQid     int64 `v:"min:1#QQ号不能为空"`
+	NickName string
+	Auth     int
+}
+
+// @summary 修改用户信息
+// @tags    用户服务
+// @produce json
+// @param   qqid query string true "QQ号"
+// @param   nickname query string true "用户别名"
+// @param   auth query string true "权限"
+// @router  /user/changeuserdata [GET]
+// @success 200 {object} response.JsonResponse "执行结果"
+func (c *Controller) ChangeUserData(r *ghttp.Request) {
+	var data *ChangeUserDataRequest
+	if err := r.Parse(&data); err != nil {
+		response.JsonExit(r, 1, err.Error())
+	}
+	err := user.ChangeUserData(r, data.QQid, data.NickName, data.Auth)
+	if err != nil {
+		response.JsonExit(r, 1, err.Error())
+	}
+	response.JsonExit(r, 0, "")
+}
+
+// 请求参数，用于前后端交互参数格式约定
+type DelUserRequest struct {
+	QQid int64 `v:"min:1#QQ号不能为空"`
+}
+
+// @summary 删除用户
+// @tags    用户服务
+// @produce json
+// @param   qqid query string true "QQ号"
+// @router  /user/deltser [GET]
+// @success 200 {object} response.JsonResponse "执行结果"
+func (c *Controller) DelUser(r *ghttp.Request) {
+	var data *DelUserRequest
+	if err := r.Parse(&data); err != nil {
+		response.JsonExit(r, 1, err.Error())
+	}
+	err := user.DelUser(r, data.QQid)
 	if err != nil {
 		response.JsonExit(r, 1, err.Error())
 	}

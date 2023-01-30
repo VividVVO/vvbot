@@ -11,13 +11,14 @@ import (
 
 // Entity is the golang structure for table gvg_member_extra.
 type Entity struct {
-    Id        int `orm:"id"         json:"id"`         //   
-    GvgId     int `orm:"gvg_id"     json:"gvg_id"`     //   
-    Qqid      int `orm:"qqid"       json:"qqid"`       //   
-    State     int `orm:"state"      json:"state"`      //   
-    AgentQqid int `orm:"agent_qqid" json:"agent_qqid"` //   
-    Type      int `orm:"type"       json:"type"`       //   
-    Time      int `orm:"time"       json:"time"`       //   
+	Id        int    `orm:"id"         json:"id"`         //
+	GvgId     int    `orm:"gvg_id"     json:"gvg_id"`     //
+	Qqid      int64  `orm:"qqid"       json:"qqid"`       //
+	State     int    `orm:"state"      json:"state"`      //
+	AgentQqid int64  `orm:"agent_qqid" json:"agent_qqid"` //
+	Message   string `orm:"message"    json:"message"`    //
+	Type      int    `orm:"type"       json:"type"`       //
+	Time      int64  `orm:"time"       json:"time"`       //
 }
 
 // OmitEmpty sets OPTION_OMITEMPTY option for the model, which automatically filers

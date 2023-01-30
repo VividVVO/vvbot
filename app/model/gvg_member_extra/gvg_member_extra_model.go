@@ -24,21 +24,23 @@ var (
 	Model = &arModel{g.DB("default").Table(Table).Safe()}
 	// Columns defines and stores column names for table gvg_member_extra.
 	Columns = struct {
-		Id         string //   
-        GvgId      string //   
-        Qqid       string //   
-        State      string //   
-        AgentQqid  string //   
-        Type       string //   
-        Time       string //
+		Id        string //
+		GvgId     string //
+		Qqid      string //
+		State     string //
+		AgentQqid string //
+		Message   string //
+		Type      string //
+		Time      string //
 	}{
-		Id:        "id",          
-        GvgId:     "gvg_id",      
-        Qqid:      "qqid",        
-        State:     "state",       
-        AgentQqid: "agent_qqid",  
-        Type:      "type",        
-        Time:      "time",
+		Id:        "id",
+		GvgId:     "gvg_id",
+		Qqid:      "qqid",
+		State:     "state",
+		AgentQqid: "agent_qqid",
+		Message:   "message",
+		Type:      "type",
+		Time:      "time",
 	}
 )
 

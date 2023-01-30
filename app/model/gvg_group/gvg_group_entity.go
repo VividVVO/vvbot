@@ -11,23 +11,24 @@ import (
 
 // Entity is the golang structure for table gvg_group.
 type Entity struct {
-    GvgId              int    `orm:"gvg_id"               json:"gvg_id"`               //   
-    GroupId            int    `orm:"group_id"             json:"group_id"`             //   
-    CreateQqid         int    `orm:"create_qqid"          json:"create_qqid"`          //   
-    GameServer         string `orm:"game_server"          json:"game_server"`          //   
-    GvgName            string `orm:"gvg_name"             json:"gvg_name"`             //   
-    BossCycle          int    `orm:"boss_cycle"           json:"boss_cycle"`           //   
-    BossNum            int    `orm:"boss_num"             json:"boss_num"`             //   
-    BossHp             int    `orm:"boss_hp"              json:"boss_hp"`              //   
-    BossLockQqid       int    `orm:"boss_lock_qqid"       json:"boss_lock_qqid"`       //   
-    BossLockType       int    `orm:"boss_lock_type"       json:"boss_lock_type"`       //   
-    BossLockMsg        string `orm:"boss_lock_msg"        json:"boss_lock_msg"`        //   
-    BossLockTime       int    `orm:"boss_lock_time"       json:"boss_lock_time"`       //   
-    ChallengeStratTime int    `orm:"challenge_strat_time" json:"challenge_strat_time"` //   
-    ChallengeStratQqid int    `orm:"challenge_strat_qqid" json:"challenge_strat_qqid"` //   
-    GvgStartTime       int    `orm:"gvg_start_time"       json:"gvg_start_time"`       //   
-    GvgEndTime         int    `orm:"gvg_end_time"         json:"gvg_end_time"`         //   
-    Time               int    `orm:"time"                 json:"time"`                 //   
+	GvgId              int    `orm:"gvg_id"               json:"gvg_id"`               //
+	GroupId            int    `orm:"group_id"             json:"group_id"`             //
+	CreateQqid         int64  `orm:"create_qqid"          json:"create_qqid"`          //
+	GameServer         string `orm:"game_server"          json:"game_server"`          //
+	GvgName            string `orm:"gvg_name"             json:"gvg_name"`             //
+	BossCycle          int    `orm:"boss_cycle"           json:"boss_cycle"`           //
+	BossNum            int    `orm:"boss_num"             json:"boss_num"`             //
+	BossHp             int    `orm:"boss_hp"              json:"boss_hp"`              //
+	BossFullHp         int    `orm:"boss_full_hp"         json:"boss_full_hp"`         //
+	BossLockQqid       int64  `orm:"boss_lock_qqid"       json:"boss_lock_qqid"`       //
+	BossLockType       int    `orm:"boss_lock_type"       json:"boss_lock_type"`       //
+	BossLockMsg        string `orm:"boss_lock_msg"        json:"boss_lock_msg"`        //
+	BossLockTime       int64  `orm:"boss_lock_time"       json:"boss_lock_time"`       //
+	ChallengeStratTime int64  `orm:"challenge_strat_time" json:"challenge_strat_time"` //
+	ChallengeStratQqid int64  `orm:"challenge_strat_qqid" json:"challenge_strat_qqid"` //
+	GvgStartTime       int64  `orm:"gvg_start_time"       json:"gvg_start_time"`       //
+	GvgEndTime         int64  `orm:"gvg_end_time"         json:"gvg_end_time"`         //
+	Time               int64  `orm:"time"                 json:"time"`                 //
 }
 
 // OmitEmpty sets OPTION_OMITEMPTY option for the model, which automatically filers

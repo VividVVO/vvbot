@@ -16,10 +16,10 @@ func GetNowTimeToZone(zone string) time.Time {
 }
 
 // CN,TW,JP,KR,国服,台服,日服,韩服
-func GetTimeAtUnixToZone(zone string, unixTime int) time.Time {
+func GetTimeAtUnixToZone(zone string, unixTime int64) time.Time {
 	zone = countryToFile(zone)
 	var cstSh, _ = time.LoadLocation(zone)
-	return time.Unix(int64(unixTime), 0).In(cstSh)
+	return time.Unix(unixTime, 0).In(cstSh)
 }
 
 // 解析指定地区时间
@@ -43,7 +43,7 @@ func StrToTimeFormatTheZone(strTime string, zone string) (time.Time, error) {
 }
 
 // 从时间戳获取PCR日数
-func GetPcrUnixToDay(gameServer string, unixTime int) int {
+func GetPcrUnixToDay(gameServer string, unixTime int64) int {
 	return GetTimeAtUnixToZone(gameServer, unixTime).Day()
 }
 
@@ -61,6 +61,19 @@ func GetPcrDayStartTimeToUnix(gameServer string) int64 {
 // 获取PCR今日结束时间
 func GetPcrDayEndTimeToUnix(gameServer string) int64 {
 	return GetPcrDayStartTimeToUnix(gameServer) + 86400
+}
+
+// 获取从文本日期获取PCR开始时间
+func GetPcrStartTimeToUnixAtStr(gameServer string, timeStr string) int64 {
+	t := TimeParseToZone(gameServer, timeStr, "2006-01-02")
+	// 每天5点刷新
+	unix := t.Unix() + 18000
+	return unix
+}
+
+// 获取PCR结束时间
+func GetPcrEndTimeToUnixAtStr(gameServer string, timeStr string) int64 {
+	return GetPcrStartTimeToUnixAtStr(gameServer, timeStr) + 86400
 }
 
 // 获取PCR昨日开始时间

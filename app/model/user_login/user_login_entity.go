@@ -11,10 +11,10 @@ import (
 
 // Entity is the golang structure for table user_login.
 type Entity struct {
-    Qqid       int    `orm:"qqid"        json:"qqid"`        //   
-    AuthCookie string `orm:"auth_cookie" json:"auth_cookie"` //   
-    LoginTime  int    `orm:"login_time"  json:"login_time"`  //   
-    LoginIp    string `orm:"login_ip"    json:"login_ip"`    //   
+	Qqid       int64  `orm:"qqid"        json:"qqid"`        //
+	AuthCookie string `orm:"auth_cookie" json:"auth_cookie"` //
+	LoginTime  int64  `orm:"login_time"  json:"login_time"`  //
+	LoginIp    string `orm:"login_ip"    json:"login_ip"`    //
 }
 
 // OmitEmpty sets OPTION_OMITEMPTY option for the model, which automatically filers

@@ -12,8 +12,6 @@ func Auth(r *ghttp.Request) {
 	if user.IsSignedIn(r) {
 		r.Middleware.Next()
 	} else {
-		// r.Response.WriteStatus(http.StatusForbidden)
-		// r.Response.WriteStatus(http.StatusForbidden)
-		response.JsonExit(r, -100, "", "账号未登录")
+		response.JsonExit(r, 401, "", "账号未登录")
 	}
 }

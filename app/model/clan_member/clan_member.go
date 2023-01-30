@@ -8,11 +8,13 @@ package clan_member
 import (
 	"errors"
 	"fmt"
+	"github.com/gogf/gf/frame/g"
 	_ "github.com/mattn/go-sqlite3"
+	"time"
 )
 
 // 所有成员退出指定公会
-func MemberExitGourp(groupid int) error {
+func MemberExitGroup(groupid int) error {
 	_, err := Delete("group_id=?", groupid)
 	if err != nil {
 		return errors.New(fmt.Sprintf("内部错误"))
@@ -21,7 +23,7 @@ func MemberExitGourp(groupid int) error {
 }
 
 // 指定成员退出指定公会
-func MemberExitGourpAtQqid(qqid int, groupid int) error {
+func MemberExitGroupAtQqid(qqid int64, groupid int) error {
 	_, err := Delete("group_id=? and qqid=?", groupid, qqid)
 	if err != nil {
 		return errors.New(fmt.Sprintf("内部错误"))
@@ -38,7 +40,7 @@ func JoinClan(entity *Entity) error {
 }
 
 // 判断用户是否已加入公会
-func IsToJoinClan(qqid int, groupID int) (bool, error) {
+func IsToJoinClan(qqid int64, groupID int) (bool, error) {
 	one, err := FindOne("qqid=? and group_id=?", qqid, groupID)
 	if err != nil {
 		return false, errors.New(fmt.Sprintf("内部错误"))
@@ -50,10 +52,67 @@ func IsToJoinClan(qqid int, groupID int) (bool, error) {
 }
 
 // 获取成员数据
-func GetClanMember(qqid int, groupID int) (*Entity, error) {
+func GetClanMember(qqid int64, groupID int) (*Entity, error) {
 	one, err := FindOne("qqid=? and group_id=?", qqid, groupID)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
 	return one, nil
+}
+
+// 获取公会所有成员数据
+func GetAllClanMember(groupID int) ([]*Entity, error) {
+	one, err := FindAll("group_id=?", groupID)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("内部错误"))
+	}
+	return one, nil
+}
+
+// GetUserClanList 获取用户公会列表
+func GetUserClanList(qqid int64) ([]*Entity, error) {
+	all, err := FindAll("qqid=?", qqid)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("内部错误"))
+	}
+	return all, nil
+}
+
+// GetClanMemberAuthorityGroup 0 普通用户, 10 管理员
+func GetClanMemberAuthorityGroup(qqid int64, groupID int) (int, error) {
+	clanMember, err := GetClanMember(qqid, groupID)
+	if err != nil {
+		return 0, err
+	}
+	if clanMember == nil {
+		return 0, nil
+	}
+	return clanMember.Role, nil
+}
+
+// CheckClanMemberAuthorityGroup 检测用户组权限
+func CheckClanMemberAuthorityGroup(qqid int64, auth int, groupID int) bool {
+	auth1, err := GetClanMemberAuthorityGroup(qqid, groupID)
+	if err != nil {
+		return false
+	}
+	return auth1 >= auth
+}
+
+// Login 成员登录
+func Login(qqid int64, clanGroupID int, loginIP string) error {
+	_, err := Update(g.Map{"login_time": time.Now().Unix(), "login_ip": loginIP}, "qqid=? and group_id=?", qqid, clanGroupID)
+	if err != nil {
+		return errors.New(fmt.Sprintf("内部错误"))
+	}
+	return nil
+}
+
+// Login 成员登录
+func ChangeMembersData(qqid int64, clanGroupID int, gameName string, auth int) error {
+	_, err := Update(g.Map{"game_name": gameName, "role": auth}, "qqid=? and group_id=?", qqid, clanGroupID)
+	if err != nil {
+		return errors.New(fmt.Sprintf("内部错误"))
+	}
+	return nil
 }

@@ -11,24 +11,25 @@ import (
 
 // Entity is the golang structure for table gvg_challenge.
 type Entity struct {
-    ChallengeId     int    `orm:"challenge_id"     json:"challenge_id"`     //   
-    GvgId           int    `orm:"gvg_id"           json:"gvg_id"`           //   
-    ClanGroupId     int    `orm:"clan_group_id"    json:"clan_group_id"`    //   
-    Qqid            int    `orm:"qqid"             json:"qqid"`             //   
-    ChallengeTime   int    `orm:"challenge_time"   json:"challenge_time"`   //   
-    ChallengeDamage int    `orm:"challenge_damage" json:"challenge_damage"` //   
-    BossNum         int    `orm:"boss_num"         json:"boss_num"`         //   
-    BossCycle       int    `orm:"boss_cycle"       json:"boss_cycle"`       //   
-    AgentQqid       int    `orm:"agent_qqid"       json:"agent_qqid"`       //   
-    IsContinue      int    `orm:"is_continue"      json:"is_continue"`      //   
-    IsSurplus       int    `orm:"is_surplus"       json:"is_surplus"`       //   
-    Message         string `orm:"message"          json:"message"`          //   
-    RepairType      int    `orm:"repair_type"      json:"repair_type"`      //   
-    RepairNum       int    `orm:"repair_num"       json:"repair_num"`       //   
-    RepairCycle     int    `orm:"repair_cycle"     json:"repair_cycle"`     //   
-    IsRepair        int    `orm:"is_repair"        json:"is_repair"`        //   
-    RepairHp        int    `orm:"repair_hp"        json:"repair_hp"`        //   
-    IsDelete        int    `orm:"is_delete"        json:"is_delete"`        //   
+	ChallengeId     int    `orm:"challenge_id"     json:"challenge_id"`     //
+	GvgId           int    `orm:"gvg_id"           json:"gvg_id"`           //
+	ClanGroupId     int    `orm:"clan_group_id"    json:"clan_group_id"`    //
+	Qqid            int64  `orm:"qqid"             json:"qqid"`             //
+	ChallengeTime   int64  `orm:"challenge_time"   json:"challenge_time"`   //
+	ChallengeDamage int    `orm:"challenge_damage" json:"challenge_damage"` //
+	BossHp          int    `orm:"boss_hp"          json:"boss_hp"`          //
+	BossNum         int    `orm:"boss_num"         json:"boss_num"`         //
+	BossCycle       int    `orm:"boss_cycle"       json:"boss_cycle"`       //
+	AgentQqid       int64  `orm:"agent_qqid"       json:"agent_qqid"`       //
+	IsContinue      int    `orm:"is_continue"      json:"is_continue"`      //
+	IsSurplus       int    `orm:"is_surplus"       json:"is_surplus"`       //
+	Message         string `orm:"message"          json:"message"`          //
+	RepairType      int    `orm:"repair_type"      json:"repair_type"`      //
+	RepairNum       int    `orm:"repair_num"       json:"repair_num"`       //
+	RepairCycle     int    `orm:"repair_cycle"     json:"repair_cycle"`     //
+	IsRepair        int    `orm:"is_repair"        json:"is_repair"`        //
+	RepairHp        int    `orm:"repair_hp"        json:"repair_hp"`        //
+	IsDelete        int    `orm:"is_delete"        json:"is_delete"`        //
 }
 
 // OmitEmpty sets OPTION_OMITEMPTY option for the model, which automatically filers

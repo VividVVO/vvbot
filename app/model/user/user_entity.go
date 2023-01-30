@@ -11,18 +11,18 @@ import (
 
 // Entity is the golang structure for table user.
 type Entity struct {
-    Qqid           int    `orm:"qqid"            json:"qqid"`            //   
-    Nickname       string `orm:"nickname"        json:"nickname"`        //   
-    AuthorityGroup int    `orm:"authority_group" json:"authority_group"` //   
-    LastLoginTime  int    `orm:"last_login_time" json:"last_login_time"` //   
-    LastLoginIp    string `orm:"last_login_ip"   json:"last_login_ip"`   //   
-    Password       string `orm:"password"        json:"password"`        //   
-    ClanGroupId    int    `orm:"clan_group_id"   json:"clan_group_id"`   //   
-    LoginCode      string `orm:"login_code"      json:"login_code"`      //   
-    LoginCodeTime  int    `orm:"login_code_time" json:"login_code_time"` //   
-    Deleted        int    `orm:"deleted"         json:"deleted"`         //   
-    CreateTime     int    `orm:"create_time"     json:"create_time"`     //   
-    CreateIp       string `orm:"create_ip"       json:"create_ip"`       //   
+	Qqid           int64  `orm:"qqid"            json:"qqid"`            //
+	Nickname       string `orm:"nickname"        json:"nickname"`        //
+	AuthorityGroup int    `orm:"authority_group" json:"authority_group"` //
+	LastLoginTime  int64  `orm:"last_login_time" json:"last_login_time"` //
+	LastLoginIp    string `orm:"last_login_ip"   json:"last_login_ip"`   //
+	Password       string `orm:"password"        json:"password"`        //
+	ClanGroupId    int64  `orm:"clan_group_id"   json:"clan_group_id"`   //
+	LoginCode      string `orm:"login_code"      json:"login_code"`      //
+	LoginCodeTime  int64  `orm:"login_code_time" json:"login_code_time"` //
+	Deleted        int    `orm:"deleted"         json:"deleted"`         //
+	CreateTime     int64  `orm:"create_time"     json:"create_time"`     //
+	CreateIp       string `orm:"create_ip"       json:"create_ip"`       //
 }
 
 // OmitEmpty sets OPTION_OMITEMPTY option for the model, which automatically filers

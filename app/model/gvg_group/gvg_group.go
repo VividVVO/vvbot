@@ -15,7 +15,7 @@ import (
 
 // Fill with you ideas below.
 
-func ApplyChallenge(qqid int, gvgId int) error {
+func ApplyChallenge(qqid int64, gvgId int) error {
 	if _, err := Update(
 		g.Map{
 			"challenge_strat_qqid": qqid,
@@ -27,7 +27,7 @@ func ApplyChallenge(qqid int, gvgId int) error {
 }
 
 // 锁定BOSS
-func BossLock(qqid int, gvgid int, state int, msg string) error {
+func BossLock(qqid int64, gvgid int, state int, msg string) error {
 	_, err := Update(g.Map{
 		"boss_lock_qqid": qqid,
 		"boss_lock_type": state,
@@ -99,8 +99,8 @@ func GvgGroupCreate(entity *Entity) error {
 	return nil
 }
 
-func UpdateGvgBossData(gvgid int, cycle int, bossNum int, bossHp int) error {
-	if _, err := Update(g.Map{"boss_cycle": cycle, "boss_num": bossNum, "boss_hp": bossHp}, "gvg_id", gvgid); err != nil {
+func UpdateGvgBossData(gvgid int, cycle int, bossNum int, bossHp int, BossFullHp int) error {
+	if _, err := Update(g.Map{"boss_cycle": cycle, "boss_num": bossNum, "boss_hp": bossHp, "boss_full_hp": BossFullHp}, "gvg_id", gvgid); err != nil {
 		return errors.New(fmt.Sprintf("内部错误"))
 	}
 	return nil

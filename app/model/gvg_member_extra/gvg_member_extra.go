@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gogf/gf/frame/g"
+	"github.com/gogf/gf/util/gconv"
 	time2 "github.com/vivid-vvo/vvbot/library/time"
 	"time"
 )
@@ -18,81 +19,101 @@ const ExtraTree = 2
 // Fill with you ideas below.
 
 // 取消SL
-func CancelDaySL(qqid int, gameServer string) error {
+func CancelDaySL(qqid int64, gvgid int, gameServer string) error {
 	dayTimeS := time2.GetPcrDayStartTimeToUnix(gameServer)
 	dayTimeE := time2.GetPcrDayEndTimeToUnix(gameServer)
-	return CancelMemberExtra(qqid, ExtraSl, int(dayTimeS), int(dayTimeE))
+	return CancelMemberExtra(qqid, gvgid, ExtraSl, dayTimeS, dayTimeE)
 }
 
 //  报告今日SL;
-func ReportDaySL(qqid int, agentQqid int, gvgId int) error {
-	return ReportMemberExtra(qqid, agentQqid, gvgId, ExtraSl)
+func ReportDaySL(qqid int64, agentQqid int64, gvgId int, message string) error {
+	return ReportMemberExtra(qqid, agentQqid, gvgId, ExtraSl, message)
 }
 
 // 获取是今日否SL;
-func GetDaySL(qqid int, gameServer string) (bool, error) {
+func GetDaySL(qqid int64, gvgId int, gameServer string) (*Entity, error) {
 	dayTimeS := time2.GetPcrDayStartTimeToUnix(gameServer)
 	dayTimeE := time2.GetPcrDayEndTimeToUnix(gameServer)
-	return GetMemberExtra(qqid, ExtraSl, int(dayTimeS), int(dayTimeE))
+	return GetMemberExtra(qqid, ExtraSl, gvgId, dayTimeS, dayTimeE)
 }
 
 // 获取是否在树上
-func GetIsUpTree(qqid int) (bool, error) {
+func GetIsUpTree(qqid int64, gvgId int) (*Entity, error) {
 	nowTime := time.Now().Unix()
 	// 最多挂一小树
-	return GetMemberExtra(qqid, ExtraTree, int(nowTime-1*60*60), int(nowTime))
+	return GetMemberExtra(qqid, ExtraTree, gvgId, nowTime-1*60*60, nowTime)
 }
 
 // 获取所有在树上的
-func GetAllUpTree() ([]*Entity, error) {
+func GetAllUpTree(gvgID int) ([]*Entity, error) {
 	nowTime := time.Now().Unix()
 	// 最多挂一小树
-	return GetAllMemberExtra(ExtraTree, int(nowTime-1*60*60), int(nowTime))
+	return GetAllMemberExtra(ExtraTree, gvgID, nowTime-1*60*60, nowTime)
 }
 
 // 报告上树
-func ReportUpTree(qqid int, agentQqid int, gvgId int) error {
-	return ReportMemberExtra(qqid, agentQqid, gvgId, ExtraTree)
+func ReportUpTree(qqid int64, agentQqid int64, gvgId int, message string) error {
+	return ReportMemberExtra(qqid, agentQqid, gvgId, ExtraTree, message)
 }
 
-// 报告下树 state==0 手动直接下树, state==1 结算下树, state==2 BOSS死亡后下树
-func ReportDownTree(qqid int, agentQqid int, gvgId int, state int) error {
+// ReportDownTree 报告下树 state==0 手动直接下树, state==1 结算下树, state==2 BOSS死亡后下树
+func ReportDownTree(qqid int64, gvgId int, state int) error {
 	if state == 0 {
-		return CancelLostMemberExtra(qqid, ExtraTree)
+		return CancelLostMemberExtra(qqid, gvgId, ExtraTree)
 	}
-	return SetLostMemberExtraState(qqid, state, ExtraTree)
+	return SetLostMemberExtraState(qqid, gvgId, state, ExtraTree)
 }
 
 // 设置公会成员额外数据状态
-func SetLostMemberExtraState(qqid int, state int, etype int) error {
-	if _, err := Model.Limit(1).Order("time dec").Update(
-		g.Map{
-			"state": state,
-		}, "qqid=? and type=? and state=?", qqid, etype, state); err != nil {
+func SetLostMemberExtraState(qqid int64, gvgid int, state int, etype int) error {
+	if _, err := Update(g.Map{
+		"state": state,
+	}, "qqid=? and gvg_id=? and type=? and id=(SELECT MAX(id) FROM `gvg_member_extra`)", qqid, gvgid, etype); err != nil {
 		return errors.New(fmt.Sprintf("内部错误"))
 	}
 	return nil
 }
 
 // 清除公会成员额外数据
-func CancelMemberExtra(qqid int, etype int, dayTimeS int, dayTimeE int) error {
-	if _, err := Delete("(id,time)=(SELECT id,MAX(time) FROM `gvg_member_extra` WHERE qqid=? and time>? and time<? and type=?)", qqid, dayTimeS, dayTimeE, etype); err != nil {
+func CancelMemberExtra(qqid int64, gvgid int, etype int, dayTimeS int64, dayTimeE int64) error {
+	if _, err := Delete("(id,time)=(SELECT id,MAX(time) FROM `gvg_member_extra` WHERE qqid=? and gvg_id=? and time>? and time<? and type=?)", qqid, gvgid, dayTimeS, dayTimeE, etype); err != nil {
 		return errors.New(fmt.Sprintf("内部错误"))
 	}
 	return nil
 }
 
-// 清除公会成员额外数据、如 SL/挂树
-func CancelLostMemberExtra(qqid int, etype int) error {
-	if _, err := Delete("(id,time)=(SELECT id,MAX(time) FROM `gvg_member_extra` WHERE qqid=? and type=?)", qqid, etype); err != nil {
+// 清除公会成员最后的一条额外数据、如 SL/挂树
+func CancelLostMemberExtra(qqid int64, gvgid int, etype int) error {
+	if _, err := Delete("(id,time)=(SELECT id,MAX(time) FROM `gvg_member_extra` WHERE qqid=? and gvg_id=? and type=?)", qqid, gvgid, etype); err != nil {
 		return errors.New(fmt.Sprintf("内部错误"))
 	}
 	return nil
+}
+
+type GetAllSlStateEntity struct {
+	Message string `json:"sl_message"` //
+	GvgId   int    `json:"gvg_id"`     //
+	Qqid    string `json:"qqid"`       //
+	Time    int64  `json:"sl_time"`    //
+}
+
+// 获取所有公会成员sl状态
+func GetAllSlState(gvgid int, dayTimeS int64, dayTimeE int64) (*[]GetAllSlStateEntity, error) {
+	entityList, err := GetAllMemberExtra(ExtraSl, gvgid, dayTimeS, dayTimeE)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("内部错误"))
+	}
+	allSlState := new([]GetAllSlStateEntity)
+	err = gconv.Structs(entityList, allSlState)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("内部错误"))
+	}
+	return allSlState, nil
 }
 
 // 获取公会成员额外数据、如 SL/挂树
-func GetAllMemberExtra(etype int, dayTimeS int, dayTimeE int) ([]*Entity, error) {
-	entityList, err := FindAll("time>? and time<? and type=? and state=0", dayTimeS, dayTimeE, etype)
+func GetAllMemberExtra(etype int, gvgid int, dayTimeS int64, dayTimeE int64) ([]*Entity, error) {
+	entityList, err := FindAll("time>? and time<? and type=? and gvg_id=? and state=0", dayTimeS, dayTimeE, etype, gvgid)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
@@ -100,23 +121,22 @@ func GetAllMemberExtra(etype int, dayTimeS int, dayTimeE int) ([]*Entity, error)
 }
 
 // 获取公会成员额外数据、如 SL/挂树
-func GetMemberExtra(qqid int, etype int, dayTimeS int, dayTimeE int) (bool, error) {
-	if num, err := FindCount("qqid=? and time>? and time<? and type=? and state=0", qqid, dayTimeS, dayTimeE, etype); err != nil || num == 0 {
-		if num == 0 {
-			return false, nil
-		}
-		return false, errors.New(fmt.Sprintf("内部错误"))
+func GetMemberExtra(qqid int64, etype int, gvgId int, dayTimeS int64, dayTimeE int64) (*Entity, error) {
+	one, err := FindOne("qqid=? and time>? and time<? and type=? and gvg_id=? and state=0", qqid, dayTimeS, dayTimeE, etype, gvgId)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
-	return true, nil
+	return one, nil
 }
 
 // 提交公会成员额外数据、如 SL/挂树
-func ReportMemberExtra(qqid int, agentQqid int, gvgid int, etype int) error {
+func ReportMemberExtra(qqid int64, agentQqid int64, gvgid int, etype int, message string) error {
 	gvgSl := Entity{
 		Qqid:      qqid,
 		AgentQqid: agentQqid,
 		GvgId:     gvgid,
-		Time:      int(time.Now().Unix()),
+		Time:      time.Now().Unix(),
+		Message:   message,
 		Type:      etype,
 	}
 	if _, err := Model.FieldsEx("id").Insert(gvgSl); err != nil {

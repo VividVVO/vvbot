@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/vivid-vvo/vvbot/app/model/user"
 	"github.com/vivid-vvo/vvbot/app/model/user_login"
+	"github.com/vivid-vvo/vvbot/app/service/check"
 	"strconv"
 	"time"
 
@@ -36,11 +37,11 @@ type ChangePasswordInput struct {
 
 // 用户信息
 type UserInfo struct {
-	Qqid           int    `json:"qqid"`            //   QQ号
+	Qqid           int64  `json:"qqid"`            //   QQ号
 	Nickname       string `json:"nickname"`        //   用户名
-	AuthorityGroup int    `json:"authority_group"` //   所在权限组
-	ClanGroupId    int    `json:"clan_group_id"`   //   公会组ID
-	LastLoginTime  int    `json:"last_login_time"` //   最后登录时间
+	AuthorityGroup int    `json:"auth"`            //   所在权限组
+	ClanGroupId    int64  `json:"clan_group_id"`   //   公会组ID
+	LastLoginTime  int64  `json:"last_login_time"` //   最后登录时间
 	LastLoginIp    string `json:"last_login_ip"`   //   最后登录IP
 	ClanGroupName  string `json:"clan_group_name"`
 	GvgName        string `json:"gvg_name"`
@@ -60,7 +61,7 @@ func SignUp(r *ghttp.Request, data *SignUpInput) error {
 	if !CheckQQid(data.QQid) {
 		return errors.New(fmt.Sprintf("账号 %s 已经存在", data.QQid))
 	}
-	QQid, err := strconv.Atoi(data.QQid)
+	QQid, err := strconv.ParseInt(data.QQid, 10, 64)
 	if err != nil {
 		return errors.New(fmt.Sprintf("内部错误"))
 	}
@@ -96,40 +97,76 @@ func GetLoginData(r *ghttp.Request) (*user_login.Entity, error) {
 	return one, nil
 }
 
+type LoginData struct {
+	Token    string   `json:"token"`
+	Roles    []string `json:"roles"`
+	QQID     int64    `json:"qqid"`
+	NickName string   `json:"nickname"`
+}
+
 // 用户登录，成功返回用户信息，否则返回nil;
-func SignIn(r *ghttp.Request, qqid string, password string) error {
-	one, err := user.FindOne("qqid=? and password=?", qqid, fmt.Sprintf("%x", sha256.Sum256([]byte(password))))
-	if err != nil {
-		return errors.New("内部错误")
-	}
-	if one == nil {
-		return errors.New("账号或密码错误")
+func Login(r *ghttp.Request, qqid string, password string, authCookie string) (*LoginData, error) {
+	var one *user.Entity
+	var err error
+	if password != "" {
+		one, err = user.FindOne("qqid=? and password=?", qqid, fmt.Sprintf("%x", sha256.Sum256([]byte(password))))
+		if err != nil {
+			return nil, errors.New("内部错误")
+		}
+		if one == nil {
+			return nil, errors.New("账号或密码错误")
+		}
+	} else if authCookie != "" {
+		one, err = user.FindOne("qqid=? and login_code=?", qqid, authCookie)
+		if err != nil {
+			return nil, errors.New("内部错误")
+		}
+		if one == nil {
+			return nil, errors.New("key错误")
+		}
+	} else {
+		return nil, errors.New("参数错误")
 	}
 	nowTimeS := time.Now().Unix()
-	var userData UserData
-	if err := gconv.Struct(one, &userData); err != nil {
-		return err
-	}
 	entity := new(user_login.Entity)
 	entity.AuthCookie = guid.S()
-	entity.LoginTime = int(nowTimeS)
+	entity.LoginTime = nowTimeS
 	entity.LoginIp = r.GetClientIp()
 	entity.Qqid = one.Qqid
-	userData.AuthCookie = entity.AuthCookie
 	if _, err := user_login.Insert(entity); err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
+		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
-	one.LastLoginTime = int(nowTimeS)
+	one.LastLoginTime = nowTimeS
 	one.LastLoginIp = r.GetClientIp()
 	if _, err := user.Update(one, "qqid", qqid); err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
+		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
 	r.Cookie.Set("authkey", entity.AuthCookie)
-	return nil
+	var roles []string
+	iQQID, _ := strconv.ParseInt(qqid, 10, 64)
+	if check.CheckIsMaster(iQQID) {
+		roles = append(roles, "superadmin")
+	} else {
+		switch one.AuthorityGroup {
+		case check.AuthUser:
+			roles = append(roles, "member")
+		case check.AuthAdmin:
+			roles = append(roles, "admin")
+		case check.AuthSuperAdmin:
+			roles = append(roles, "superadmin")
+		}
+	}
+	loginData := &LoginData{
+		Token:    entity.AuthCookie,
+		Roles:    roles,
+		QQID:     one.Qqid,
+		NickName: one.Nickname,
+	}
+	return loginData, nil
 }
 
 // 修改用户公会组ID;
-func ChangeClanGroupId(r *ghttp.Request, qqid int, groupId int) error {
+func ChangeClanGroupId(r *ghttp.Request, qqid int64, groupId int) error {
 	if qqid == 0 {
 		qqid = GetLoginData2(r).Qqid
 	}
@@ -141,24 +178,14 @@ func ChangeClanGroupId(r *ghttp.Request, qqid int, groupId int) error {
 
 // 修改用户密码，成功返回用户信息，否则返回nil;
 func ChangePassword(r *ghttp.Request, data *ChangePasswordInput) error {
-	tx, err := g.DB().Begin()
+	qqid, err := strconv.ParseInt(data.QQid, 10, 64)
 	if err != nil {
 		return errors.New("内部错误")
 	}
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		} else {
-			tx.Commit()
-			r.Cookie.Remove("authkey")
-		}
-	}()
-	_, err = tx.Table("user").Update(g.Map{"password": fmt.Sprintf("%x", sha256.Sum256([]byte(data.Password)))}, "qqid", data.QQid)
+	err = user.ChangePassword(qqid, data.Password)
 	if err != nil {
-		return errors.New("修改密码失败！")
+		return err
 	}
-	_, err = tx.Table("user_login").Delete("qqid", data.QQid)
-
 	return nil
 }
 
@@ -192,7 +219,7 @@ func CheckNickName(nickname string) bool {
 }
 
 // 获得用户信息详情
-func GetProfile(r *ghttp.Request, qqid int) (*UserInfo, error) {
+func GetProfile(r *ghttp.Request, qqid int64) (*UserInfo, error) {
 	if qqid == 0 {
 		qqid = GetLoginData2(r).Qqid
 	}
@@ -207,28 +234,101 @@ func GetProfile(r *ghttp.Request, qqid int) (*UserInfo, error) {
 	return userInfo, nil
 }
 
-// 0 普通用户, 1 管理员
-func GetUserAuthorityGroup(r *ghttp.Request, qqid int) (int, error) {
-	if qqid == 0 {
-		qqid = GetLoginData2(r).Qqid
-	}
-	user, err := GetProfile(r, qqid)
-	if err != nil {
-		return 0, err
-	}
-	var authorityGroup int
-	if user.AuthorityGroup == 0 {
-		authorityGroup = 0
-	} else if user.AuthorityGroup == 100 {
-		authorityGroup = 1
-	}
-	return authorityGroup, nil
-}
-
 // 登录信息、缓存信息
 func GetLoginData2(r *ghttp.Request) user_login.Entity {
 	var loginData user_login.Entity
 	r.Session.GetStruct(SessionUserLogin, &loginData)
 
 	return loginData
+}
+
+// 获取用户列表
+func GetUserList() ([]*user.Entity, error) {
+	userList, err := user.GetUserList()
+	if err != nil {
+		return nil, err
+	}
+	return userList, nil
+}
+
+// 修改用户信息
+func ChangeUserData(r *ghttp.Request, qqid int64, nickName string, auth int) error {
+	thisqqid := GetLoginData2(r).Qqid
+	profile, err := GetProfile(r, qqid)
+	if err != nil {
+		return err
+	}
+	if profile.AuthorityGroup != auth {
+		switch auth {
+		case check.AuthUser:
+		case check.AuthSuperAdmin:
+		case check.AuthAdmin:
+		case check.AuthClanAdmin:
+		case check.AuthGvgAdmin:
+		default:
+			return errors.New("参数错误")
+		}
+		if !check.CheckIsMaster(thisqqid) {
+			if profile.AuthorityGroup == check.AuthSuperAdmin {
+				return errors.New("权限不足")
+			}
+		}
+		if !check.CheckAuthorityGroup(thisqqid, check.AuthSuperAdmin, 0) {
+			return errors.New("权限不足")
+		}
+	} else if thisqqid != qqid {
+		// 必须拥有管理员权限才能修改用户信息
+		if !check.CheckAuthorityGroup(thisqqid, check.AuthAdmin, 0) {
+			return errors.New("权限不足")
+		}
+	}
+	return user.ChangeUserData(qqid, nickName, auth)
+}
+
+// 修改用户信息
+func DelUser(r *ghttp.Request, qqid int64) error {
+	thisqqid := GetLoginData2(r).Qqid
+	profile, err := GetProfile(r, qqid)
+	if err != nil {
+		return err
+	}
+	if !check.CheckIsMaster(thisqqid) {
+		if profile.AuthorityGroup == check.AuthSuperAdmin {
+			return errors.New("权限不足")
+		} else if profile.AuthorityGroup >= check.AuthAdmin {
+			if !check.CheckAuthorityGroup(thisqqid, check.AuthSuperAdmin, 0) {
+				return errors.New("权限不足")
+			}
+		} else {
+			if !check.CheckAuthorityGroup(thisqqid, check.AuthAdmin, 0) {
+				return errors.New("权限不足")
+			}
+		}
+	}
+	tx, err := g.DB().Begin()
+	if err != nil {
+		return errors.New("内部错误")
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+	_, err = tx.Table("user").Delete("qqid", qqid)
+	if err != nil {
+		return errors.New("删除失败")
+	}
+	_, err = tx.Table("user_login").Delete("qqid", qqid)
+	if err != nil {
+		return errors.New("删除失败")
+	}
+	_, err = tx.Table("clan_member").Delete("qqid", qqid)
+	if err != nil {
+		return errors.New("删除失败")
+	}
+	err = tx.Commit()
+	if err != nil {
+		return errors.New("删除失败")
+	}
+	return nil
 }

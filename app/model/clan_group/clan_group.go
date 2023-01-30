@@ -29,7 +29,7 @@ func GetClanData(groupid int) (*Entity, error) {
 }
 
 // 根据ID查询指定公会
-func GetClanGroupAtId(groupId int) (*Entity, error) {
+func GetClanGroup(groupId int) (*Entity, error) {
 	one, err := FindOne("group_id", groupId)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("内部错误"))
@@ -47,7 +47,7 @@ func GetClanGroupAtName(groupName string) (*Entity, error) {
 }
 
 // 根据QQ群ID查询指定公会
-func GetClanGroupAtQqGroupId(qqGroupId int) (*Entity, error) {
+func GetClanGroupAtQqGroupId(qqGroupId int64) (*Entity, error) {
 	one, err := FindOne("bind_qq_group", qqGroupId)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("内部错误"))
@@ -56,7 +56,7 @@ func GetClanGroupAtQqGroupId(qqGroupId int) (*Entity, error) {
 }
 
 // 解绑QQ群
-func UnBindGroup(qqGroupId int) error {
+func UnBindGroup(qqGroupId int64) error {
 	_, err := Update(g.Map{"bind_qq_group": 0}, "bind_qq_group=?", qqGroupId)
 	if err != nil {
 		return errors.New(fmt.Sprintf("内部错误"))
@@ -65,7 +65,7 @@ func UnBindGroup(qqGroupId int) error {
 }
 
 // 绑定QQ群
-func BindGroup(groupid int, qqGroupId int) error {
+func BindGroup(groupid int, qqGroupId int64) error {
 	_, err := Update(g.Map{"bind_qq_group": qqGroupId}, "group_id=?", groupid)
 	if err != nil {
 		return errors.New(fmt.Sprintf("内部错误"))
@@ -106,11 +106,44 @@ func IsClanGroupExitsToGroupName(groupName string) (bool, error) {
 	return true, nil
 }
 
-// GetClanGroupList 查询所有公会组
-func GetClanGroupList() ([]*Entity, error) {
-	all, err := FindAll("1=1")
+// select clan_group.*,(select count(*) from clan_member where clan_member.group_id = clan_group.group_id ) member_num from clan_group
+type ClanGroupEntity struct {
+	Entity
+	MemberNum int `orm:"member_num"       json:"member_num"` //
+}
+
+// GetAllClanGroup 查询所有公会组
+func GetAllClanGroup() ([]*ClanGroupEntity, error) {
+	clanGroups := ([]*ClanGroupEntity)(nil)
+	err := Model.Fields("clan_group.*,(select count(*) from clan_member where clan_member.group_id = clan_group.group_id ) member_num").Structs(&clanGroups)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("内部错误"))
 	}
-	return all, nil
+
+	return clanGroups, nil
+}
+
+// 根据ID列表查询指定公会列表
+func GetClanGroupList(groupIdLIst []int) ([]*ClanGroupEntity, error) {
+	// ALL, err := FindAll("group_id IN(?)", groupIdLIst)
+	clanGroups := ([]*ClanGroupEntity)(nil)
+	err := Model.Fields("clan_group.*,(select count(*) from clan_member where clan_member.group_id = clan_group.group_id ) member_num").Where("group_id IN(?)", groupIdLIst).Structs(&clanGroups)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("内部错误"))
+	}
+	return clanGroups, nil
+}
+
+// ChangeClanInfo 修改公会信息
+func ChangeClanInfo(groupId int, groupName string, bindQQGroup int64, gameServer string, apikey string) error {
+	_, err := Update(g.Map{
+		"group_name":    groupName,
+		"bind_qq_group": bindQQGroup,
+		"game_server":   gameServer,
+		"apikey":        apikey,
+	}, "group_id", groupId)
+	if err != nil {
+		return errors.New(fmt.Sprintf("内部错误"))
+	}
+	return nil
 }

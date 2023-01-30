@@ -9,12 +9,12 @@ import (
 	"github.com/vivid-vvo/vvbot/app/model/clan_member"
 	"github.com/vivid-vvo/vvbot/app/model/gvg_group"
 	"github.com/vivid-vvo/vvbot/app/model/user"
-	"github.com/vivid-vvo/vvbot/app/service/gvg"
-	"github.com/vivid-vvo/vvbot/library/Tools"
+	"github.com/vivid-vvo/vvbot/app/service/check"
+	"github.com/vivid-vvo/vvbot/library/tools"
 )
 
 // GetClanGroupAndChack 获取公会并检查公会是否存在
-func GetClanGroupAndChack(qqGroupId int) (*clan_group.Entity, error) {
+func GetClanGroupAndChack(qqGroupId int64) (*clan_group.Entity, error) {
 	clanGroupData, err := clan_group.GetClanGroupAtQqGroupId(qqGroupId)
 	if err != nil {
 		return nil, err
@@ -26,7 +26,7 @@ func GetClanGroupAndChack(qqGroupId int) (*clan_group.Entity, error) {
 }
 
 // GetClanUserGroupToCheck 获取公会成员信息，并检查是否已加入公会
-func GetClanUserGroupToCheck(qqid int, groupID int) (*clan_member.Entity, error) {
+func GetClanUserGroupToCheck(qqid int64, groupID int) (*clan_member.Entity, error) {
 	userClanGroupData, err := clan_member.GetClanMember(qqid, groupID)
 	if err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func GetClanUserGroupToCheck(qqid int, groupID int) (*clan_member.Entity, error)
 }
 
 // GetClanGroupAndUserGroupToCheck 获取公户信息和用户信息、并检测是否已加入公会
-func GetClanGroupAndUserGroupToCheck(qqGroupId int, qqid int) (*clan_group.Entity, *clan_member.Entity, error) {
+func GetClanGroupAndUserGroupToCheck(qqGroupId int64, qqid int64) (*clan_group.Entity, *clan_member.Entity, error) {
 	clanGroupData, err := GetClanGroupAndChack(qqGroupId)
 	if err != nil {
 		return nil, nil, err
@@ -55,7 +55,7 @@ func GetClanGroupAndUserGroupToCheck(qqGroupId int, qqid int) (*clan_group.Entit
 }
 
 // GetGvgGroupDataAtGroupIdToCheck 获取公会信息和公会战信息，并检查公会是否存在和公会战是否已开启
-func GetGvgGroupDataAtGroupIdToCheck(qqGroupId int) (*clan_group.Entity, *gvg_group.Entity, error) {
+func GetGvgGroupDataAtGroupIdToCheck(qqGroupId int64) (*clan_group.Entity, *gvg_group.Entity, error) {
 	clanGroup, err := GetClanGroupAndChack(qqGroupId)
 	if err != nil {
 		return nil, nil, err
@@ -71,17 +71,17 @@ func GetGvgGroupDataAtGroupIdToCheck(qqGroupId int) (*clan_group.Entity, *gvg_gr
 }
 
 // GetBossStateStr 获取当前BOSS状态文本
-func GetBossStateStr(qqGroupId int) string {
+func GetBossStateStr(qqGroupId int64) string {
 	clanGroup, gvgGroup, err := GetGvgGroupDataAtGroupIdToCheck(qqGroupId)
 	if err != nil {
 		return err.Error()
 	}
-	gvg.BossHpCount(gvgGroup.GvgId, gvgGroup.GameServer)
+	check.BossHpCount(gvgGroup.GvgId, gvgGroup.GameServer)
 	gvgGroup, err = gvg_group.GetGvgGroupData(gvgGroup.GvgId)
 	if err != nil {
 		return err.Error()
 	}
-	msg := fmt.Sprintf("公会：%s\n当前公会战：%s\n现在%d周目，%d号boss\n生命值%s", clanGroup.GroupName, gvgGroup.GvgName, gvgGroup.BossCycle, gvgGroup.BossNum, Tools.NumberFormat(gvgGroup.BossHp))
+	msg := fmt.Sprintf("公会：%s\n当前公会战：%s\n现在%d周目，%d号boss\n生命值%s", clanGroup.GroupName, gvgGroup.GvgName, gvgGroup.BossCycle, gvgGroup.BossNum, tools.NumberFormat(gvgGroup.BossHp))
 	if gvgGroup.ChallengeStratQqid != 0 {
 		member, err := clan_member.GetClanMember(gvgGroup.ChallengeStratQqid, clanGroup.GroupId)
 		if err != nil {
@@ -99,7 +99,7 @@ func GetBossStateStr(qqGroupId int) string {
 	return msg
 }
 
-func UserJoinGroup(qqGroupId int, qqid int, qqNickName string) error {
+func UserJoinGroup(qqGroupId int64, qqid int64, qqNickName string) error {
 	clanGroupData, err := GetClanGroupAndChack(qqGroupId)
 	if err != nil {
 		return err
@@ -122,7 +122,7 @@ func UserJoinGroup(qqGroupId int, qqid int, qqNickName string) error {
 	if clanMember != nil {
 		return errors.New("成员已加入当前公会")
 	}
-	err = clan_member.MemberExitGourpAtQqid(qqid, clanGroupData.GroupId)
+	err = clan_member.MemberExitGroupAtQqid(qqid, clanGroupData.GroupId)
 	if err != nil {
 		return err
 	}
@@ -130,7 +130,7 @@ func UserJoinGroup(qqGroupId int, qqid int, qqNickName string) error {
 	entity.GroupId = clanGroupData.GroupId
 	entity.Qqid = qqid
 	entity.GameName = qqNickName
-	entity.JoinTime = int(gtime.Now().Unix())
+	entity.JoinTime = gtime.Now().Unix()
 	err = clan_member.JoinClan(entity)
 	if err != nil {
 		return err

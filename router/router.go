@@ -12,40 +12,50 @@ import (
 
 func init() {
 	s := g.Server()
-
 	// 某些浏览器直接请求favicon.ico文件，特别是产生404时
 	s.SetRewrite("/favicon.ico", "/resource/image/favicon.ico")
 	s.SetNameToUriType(ghttp.URI_TYPE_ALLLOWER)
-	/*o := new(Order)
-	s.BindObject("/{.struct}-{.method}", o)*/
+	// 分组路由注册方式
+	s.Group("/api", func(group *ghttp.RouterGroup) {
+		group.Middleware(middleware.CORS)
+		ctlUser := new(user.Controller)
+		group.ALL("/user/login", ctlUser, "Login")
+		group.Group("/user", func(group *ghttp.RouterGroup) {
+			group.Middleware(middleware.Auth)
+			group.ALL("/deluser", ctlUser, "DelUser")
+			group.ALL("/changepassword", ctlUser, "ChangePassword")
+			group.ALL("/profile", ctlUser, "Profile")
+			group.ALL("/signup", ctlUser, "SignUp")
+			group.ALL("/checkqqid", ctlUser, "CheckQQid")
+			group.ALL("/getuserlist", ctlUser, "GetUserList")
+			group.ALL("/changeuserdata", ctlUser, "ChangeUserData")
+		})
+	})
 
 	// 分组路由注册方式
-	s.Group("/", func(group *ghttp.RouterGroup) {
-		ctlUser := new(user.Controller)
-		ctlclan := new(clan.Controller)
-		ctlgvg := new(gvg.Controller)
-		group.Middleware(middleware.CORS)
-		group.ALL("/user", ctlUser, "SignIn")
-		group.ALL("/user/signup", ctlUser, "SignUp")
-		group.ALL("/user/signin", ctlUser, "SignIn")
-		group.ALL("/user/checkqqid", ctlUser, "CheckQQid")
-		group.Group("/", func(group *ghttp.RouterGroup) {
-			group.Middleware(middleware.Auth)
-			group.ALL("/user/issignedin", ctlUser, "IsSignedIn")
-			group.ALL("/user/profile", ctlUser, "Profile")
-			group.ALL("/user/signout", ctlUser, "SignOut")
-			group.ALL("/user/changepassword", ctlUser, "ChangePassword")
-			group.ALL("/user/joinclan", ctlclan, "JoinClan")
-			group.ALL("/user/reportcauseharm", ctlgvg, "ReportCauseHarm")
+	s.Group("/api", func(group *ghttp.RouterGroup) {
+		group.Middleware(middleware.CORS, middleware.Auth)
+		group.Group("/pcr", func(group *ghttp.RouterGroup) {
+			ctlclan := new(clan.Controller)
+			ctlgvg := new(gvg.Controller)
+			group.ALL("/getuserclanlist", ctlclan, "GetUserClanList")
+			group.ALL("/getclangroupmembers", ctlclan, "GetClanGroupMembers")
+			group.ALL("/changemembersdata", ctlclan, "ChangeMembersData")
+			group.ALL("/memberexitgroup", ctlclan, "MemberExitGroup")
+			group.ALL("/getallclan", ctlclan, "GetAllClan")
+			group.ALL("/changeclaninfo", ctlclan, "ChangeClanInfo")
+			group.ALL("/delclangroup", ctlclan, "DelClanGroup")
 
-			group.Group("/", func(group *ghttp.RouterGroup) {
-				group.Middleware(middleware.AuthGvg)
-				group.ALL("/user/clangroupcreate", ctlclan, "ClanGroupCreate")
-				group.ALL("/user/joinclanto", ctlclan, "JoinClanTo")
-				group.ALL("/user/gvggroupcreate", ctlgvg, "GvgGroupCreate")
-			})
+			group.ALL("/getclangvg", ctlgvg, "GetClanGvg")
+			group.ALL("/getchallengeatqq", ctlgvg, "GetChallengeAtQQ")
+			group.ALL("/getallchallenge", ctlgvg, "GetAllChallenge")
+			group.ALL("/remindchallenge", ctlgvg, "RemindChallenge")
+			group.ALL("/changeuserchallenge", ctlgvg, "ChangeUserChallenge")
+			group.ALL("/deluserchallenge", ctlgvg, "DelUserChallenge")
+			group.ALL("/getallslstate", ctlgvg, "GetAllSlState")
+			group.ALL("/downallchallengetoexcel", ctlgvg, "DownAllChallengeToExcel")
+
 		})
-
 	})
 
 }

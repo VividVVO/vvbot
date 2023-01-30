@@ -11,26 +11,31 @@ import (
 	"fmt"
 	"github.com/gogf/gf/frame/g"
 	"github.com/gogf/gf/os/gtime"
+	"github.com/gogf/gf/util/guid"
 	_ "github.com/mattn/go-sqlite3"
-)
-
-const (
-	AuthUser       = 0
-	AuthAdmin      = 1
-	AuthSuperAdmin = 2
+	"time"
 )
 
 // GetProfile 获得用户信息详情
-func GetProfile(qqid int) (*Entity, error) {
-	userDataForm, err := FindOne("qqid", qqid)
+func GetProfile(qqid int64) (*Entity, error) {
+	user, err := FindOne("qqid", qqid)
 	if err != nil {
 		return nil, errors.New("内部错误")
 	}
-	return userDataForm, nil
+	return user, nil
+}
+
+// GetUserList 获得用户列表
+func GetUserList() ([]*Entity, error) {
+	userList, err := FindAll("1=1")
+	if err != nil {
+		return nil, errors.New("内部错误")
+	}
+	return userList, nil
 }
 
 // ChangeClanGroupId 修改用户公会组ID;
-func ChangeClanGroupId(qqid int, groupId int) error {
+func ChangeClanGroupId(qqid int64, groupId int) error {
 	if _, err := Update(g.Map{"clan_group_id": groupId}, "qqid", qqid); err != nil {
 		return errors.New(fmt.Sprintf("内部错误"))
 	}
@@ -38,14 +43,14 @@ func ChangeClanGroupId(qqid int, groupId int) error {
 }
 
 // SignUp 用户注册
-func SignUp(qqid int, password string, Nickname string, createIp string) error {
+func SignUp(qqid int64, password string, Nickname string, createIp string) error {
 	entity := new(Entity)
 	entity.Nickname = Nickname
 	entity.Qqid = qqid
 	entity.Password = fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
 	entity.CreateIp = createIp
 	// 记录账号创建/注册时间
-	entity.CreateTime = int(gtime.Now().Unix())
+	entity.CreateTime = gtime.Now().Unix()
 	if _, err := Insert(entity); err != nil {
 
 		return errors.New(fmt.Sprintf("内部错误"))
@@ -53,26 +58,67 @@ func SignUp(qqid int, password string, Nickname string, createIp string) error {
 	return nil
 }
 
-// GetUserAuthorityGroup 0 普通用户, 1 管理员
-func GetUserAuthorityGroup(qqid int) (int, error) {
+// LoginAuth 获取登录认证
+func GetLoginAuth(qqid int64) (string, error) {
+	auth := guid.S()
+	if _, err := Update(g.Map{"login_code": auth, "login_code_time": time.Now().Unix()}, "qqid", qqid); err != nil {
+		return "", errors.New(fmt.Sprintf("内部错误"))
+	}
+	return auth, nil
+}
+
+// LoginAuth 清除登录认证
+func CleanLoginAuth(qqid string) (string, error) {
+	auth := guid.S()
+	if _, err := Update(g.Map{"login_code": auth}, "qqid", qqid); err != nil {
+		return "", errors.New(fmt.Sprintf("内部错误"))
+	}
+	return auth, nil
+}
+
+// GetUserAuthorityGroup 0 普通用户, 100 管理员, 200超级管理员
+func GetUserAuthorityGroup(qqid int64) (int, error) {
 	user, err := GetProfile(qqid)
 	if err != nil {
 		return 0, err
 	}
-	var authorityGroup int
-	if user.AuthorityGroup == 0 {
-		authorityGroup = 0
-	} else if user.AuthorityGroup == 100 {
-		authorityGroup = 1
-	}
-	return authorityGroup, nil
+	return user.AuthorityGroup, nil
 }
 
-// CheckUserAuthorityGroup 检测用户组权限
-func CheckUserAuthorityGroup(qqid int, auth int) bool {
-	auth1, err := GetUserAuthorityGroup(qqid)
+// 修改用户数据
+func ChangeUserData(qqid int64, nickName string, auth int) error {
+	_, err := Update(g.Map{
+		"nickname":        nickName,
+		"authority_group": auth,
+	}, "qqid", qqid)
 	if err != nil {
-		return false
+		return errors.New(fmt.Sprintf("内部错误"))
 	}
-	return auth1 >= auth
+	return nil
+}
+
+// ChangePassword 修改用户密码，成功返回用户信息，否则返回nil;
+func ChangePassword(qqid int64, password string) error {
+	tx, err := g.DB().Begin()
+	if err != nil {
+		return errors.New("内部错误")
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+	_, err = tx.Table("user").Update(g.Map{"password": fmt.Sprintf("%x", sha256.Sum256([]byte(password)))}, "qqid", qqid)
+	if err != nil {
+		return errors.New("内部错误")
+	}
+	_, err = tx.Table("user_login").Delete("qqid", qqid)
+	if err != nil {
+		return errors.New("内部错误")
+	}
+	err = tx.Commit()
+	if err != nil {
+		return errors.New("内部错误")
+	}
+	return nil
 }

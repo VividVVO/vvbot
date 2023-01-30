@@ -11,11 +11,13 @@ import (
 
 // Entity is the golang structure for table clan_member.
 type Entity struct {
-    Qqid     int    `orm:"qqid"      json:"qqid"`      //   
-    GroupId  int    `orm:"group_id"  json:"group_id"`  //   
-    GameName string `orm:"game_name" json:"game_name"` //   
-    Role     string `orm:"role"      json:"role"`      //   
-    JoinTime int    `orm:"join_time" json:"join_time"` //   
+	Qqid      int64  `orm:"qqid"      json:"qqid"`         //
+	GroupId   int    `orm:"group_id"  json:"group_id"`     //
+	LoginTime int64  `orm:"login_time"  json:"login_time"` //
+	LoginIp   string `orm:"login_ip"  json:"login_ip"`     //
+	GameName  string `orm:"game_name" json:"game_name"`    //
+	Role      int    `orm:"role"      json:"role"`         //
+	JoinTime  int64  `orm:"join_time" json:"join_time"`    //
 }
 
 // OmitEmpty sets OPTION_OMITEMPTY option for the model, which automatically filers

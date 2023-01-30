@@ -6,4 +6,43 @@ package user_login
 
 // Fill with you ideas below.
 
-import _ "github.com/mattn/go-sqlite3"
+import (
+	"errors"
+	"fmt"
+	"github.com/gogf/gf/frame/g"
+	"github.com/gogf/gf/util/guid"
+	_ "github.com/mattn/go-sqlite3"
+	"time"
+)
+
+// Login 登录
+func Login(qqid int64, loginIp string) (string, error) {
+	nowTimeS := time.Now().Unix()
+	entity := new(Entity)
+	entity.AuthCookie = guid.S()
+	entity.LoginTime = nowTimeS
+	entity.LoginIp = loginIp
+	entity.Qqid = qqid
+	if _, err := Insert(entity); err != nil {
+		return "", errors.New(fmt.Sprintf("内部错误"))
+	}
+	return entity.AuthCookie, nil
+}
+
+// 通过登录cookie登录
+func LoginAtAuthCookie(auth string, ip string) error {
+	if _, err := Update(g.Map{
+		"login_ip": ip,
+	}, "auth_cookie", auth); err != nil {
+		return errors.New(fmt.Sprintf("内部错误"))
+	}
+	return nil
+}
+
+// 清除登录记录
+func CleanLogin(qqid int64) error {
+	if _, err := Delete("qqid", qqid); err != nil {
+		return errors.New(fmt.Sprintf("内部错误"))
+	}
+	return nil
+}

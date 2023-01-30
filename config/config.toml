@@ -4,6 +4,7 @@
 	ServerRoot  = "public"
 	ServerAgent = "gf-app"
 	LogPath     = "/tmp/log/gf-app/server"
+	WebUrl      = "http://127.0.0.1:3000"
 
 # Logger.
 [logger]
@@ -27,12 +28,29 @@
         Level  = "all"
         Stdout = true
 
+[auth]
+    masters = [1120042502, 1441636584]
+
 
 [bot]
-    botname = "iotqq"
+    botname = "iotqq" # coolq iotqq mirai
+    Prefix = ""
 
-[iotbot]
-    site = "127.0.0.1"
-    port = 8888
-    qq = "1550517175"
-    prefix = "#"
+[coolq]
+    CoolqUrl = "http://127.0.0.1:5700"
+    AccessToken = "123456"
+    Secret = ""
+    WsReverseHost = "0.0.0.0"
+    WsReversePort = 8444
+    WsReversePath = "websocket"
+
+[iotqq]
+    Site = "119.28.89.16"
+    Port = 8888
+    QQ = "1550517175"
+
+
+
+[mirai]
+    QQ = 1550517175
+    PASS = "lolisaigao@"

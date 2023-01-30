@@ -24,43 +24,45 @@ var (
 	Model = &arModel{g.DB("default").Table(Table).Safe()}
 	// Columns defines and stores column names for table gvg_challenge.
 	Columns = struct {
-		ChallengeId      string //   
-        GvgId            string //   
-        ClanGroupId      string //   
-        Qqid             string //   
-        ChallengeTime    string //   
-        ChallengeDamage  string //   
-        BossNum          string //   
-        BossCycle        string //   
-        AgentQqid        string //   
-        IsContinue       string //   
-        IsSurplus        string //   
-        Message          string //   
-        RepairType       string //   
-        RepairNum        string //   
-        RepairCycle      string //   
-        IsRepair         string //   
-        RepairHp         string //   
-        IsDelete         string //
+		ChallengeId     string //
+		GvgId           string //
+		ClanGroupId     string //
+		Qqid            string //
+		ChallengeTime   string //
+		ChallengeDamage string //
+		BossHp          string //
+		BossNum         string //
+		BossCycle       string //
+		AgentQqid       string //
+		IsContinue      string //
+		IsSurplus       string //
+		Message         string //
+		RepairType      string //
+		RepairNum       string //
+		RepairCycle     string //
+		IsRepair        string //
+		RepairHp        string //
+		IsDelete        string //
 	}{
-		ChallengeId:     "challenge_id",      
-        GvgId:           "gvg_id",            
-        ClanGroupId:     "clan_group_id",     
-        Qqid:            "qqid",              
-        ChallengeTime:   "challenge_time",    
-        ChallengeDamage: "challenge_damage",  
-        BossNum:         "boss_num",          
-        BossCycle:       "boss_cycle",        
-        AgentQqid:       "agent_qqid",        
-        IsContinue:      "is_continue",       
-        IsSurplus:       "is_surplus",        
-        Message:         "message",           
-        RepairType:      "repair_type",       
-        RepairNum:       "repair_num",        
-        RepairCycle:     "repair_cycle",      
-        IsRepair:        "is_repair",         
-        RepairHp:        "repair_hp",         
-        IsDelete:        "is_delete",
+		ChallengeId:     "challenge_id",
+		GvgId:           "gvg_id",
+		ClanGroupId:     "clan_group_id",
+		Qqid:            "qqid",
+		ChallengeTime:   "challenge_time",
+		ChallengeDamage: "challenge_damage",
+		BossHp:          "boss_hp",
+		BossNum:         "boss_num",
+		BossCycle:       "boss_cycle",
+		AgentQqid:       "agent_qqid",
+		IsContinue:      "is_continue",
+		IsSurplus:       "is_surplus",
+		Message:         "message",
+		RepairType:      "repair_type",
+		RepairNum:       "repair_num",
+		RepairCycle:     "repair_cycle",
+		IsRepair:        "is_repair",
+		RepairHp:        "repair_hp",
+		IsDelete:        "is_delete",
 	}
 )
 

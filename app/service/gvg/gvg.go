@@ -3,530 +3,291 @@ package gvg
 import (
 	"errors"
 	"fmt"
-	"github.com/gogf/gf/frame/g"
+
 	"github.com/gogf/gf/net/ghttp"
-	"github.com/gogf/gf/os/gtime"
+
 	"github.com/gogf/gf/util/gconv"
-	"github.com/gogf/gf/util/gvalid"
-	"github.com/vivid-vvo/vvbot/app/model/boss_data"
-	"github.com/vivid-vvo/vvbot/app/model/clan_group"
+
+	"github.com/vivid-vvo/vvbot/app/model/clan_member"
 	"github.com/vivid-vvo/vvbot/app/model/gvg_challenge"
 	"github.com/vivid-vvo/vvbot/app/model/gvg_group"
 	"github.com/vivid-vvo/vvbot/app/model/gvg_member_extra"
-	"github.com/vivid-vvo/vvbot/app/service/clan"
+	"github.com/vivid-vvo/vvbot/app/service/check"
+
 	"github.com/vivid-vvo/vvbot/app/service/user"
 	time2 "github.com/vivid-vvo/vvbot/library/time"
-	"time"
+	"github.com/vivid-vvo/vvbot/qqbot/model/bot"
 )
 
-type GvgGroupCreateInput struct {
-	GroupName  string `v:"required#公会组名不能为空"`
-	GameServer string `v:"in:CN,TW,JP,KR#游戏服务器应当在国,台,日,韩选择其一"`
-	GvgName    string `v:"required#请输入本次公会战名称"`
-}
-type ReportCauseHarmInput struct {
-	Qqid   int
-	Damage int
-	// 是否尾刀
-	IsContinue int
-	// 是否昨日刀
-	IsYesterday int
-	// 留言
-	Message string
-}
-
-// 创建一个新的公会战
-func GvgGroupCreate(r *ghttp.Request, ggc *GvgGroupCreateInput, qqid int) error {
-	// 输入参数检查
-	if e := gvalid.CheckStruct(ggc, nil); e != nil {
-		return errors.New(e.FirstString())
-	}
+// GetChallengeAtQQ 获取指定QQ, 指定时间内所有刀，不包括修正刀
+func GetChallengeAtQQ(r *ghttp.Request, qqid int64, clanGroupId int, TimeType string) ([]*gvg_challenge.Entity, error) {
 	if qqid == 0 {
 		qqid = user.GetLoginData2(r).Qqid
 	}
-	var entity *gvg_group.Entity
-	if err := gconv.Struct(ggc, &entity); err != nil {
-		return err
-	}
-
-	data, err := clan_group.GetClanGroupAtName(ggc.GroupName)
+	clanGroup, err := check.GetClanGroupAndChack(clanGroupId)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if data == nil {
-		return errors.New(fmt.Sprintf("指定公会不存在！"))
+	var timeS, timeE int64
+	switch TimeType {
+	case "day":
+		timeS = time2.GetPcrDayEndTimeToUnix(clanGroup.GameServer)
+		timeE = time2.GetPcrDayEndTimeToUnix(clanGroup.GameServer)
+	case "yesterday":
+		timeS = time2.GetPcrYesterdayStartTimeToUnix(clanGroup.GameServer)
+		timeE = time2.GetPcrYesterdayEndTimeToUnix(clanGroup.GameServer)
+	default:
+		// 默认所有刀
+		timeS = 0
+		timeE = time2.GetPcrDayEndTimeToUnix(clanGroup.GameServer)
 	}
-	entity.CreateQqid = qqid
-	entity.GroupId = data.GroupId
-	entity.Time = int(gtime.Now().Unix())
-	if err = gvg_group.GvgGroupCreate(entity); err != nil {
-		return err
+	gvgChallenges, err := gvg_challenge.GetChallengeAtQQ(qqid, clanGroup.GvgId, timeS, timeE)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return gvgChallenges, nil
 }
 
-// 报刀
-func ReportCauseHarm(r *ghttp.Request, rch *ReportCauseHarmInput) error {
-	// 输入参数检查
-	if e := gvalid.CheckStruct(rch, nil); e != nil {
-		return errors.New(e.FirstString())
-	}
-	var agentQqid int
-	if rch.Qqid == 0 {
-		rch.Qqid = user.GetLoginData2(r).Qqid
-	} else {
-		agentQqid = rch.Qqid
-	}
-	// 查询公会信息
-	clanData, err := clan.GetClanDataAtQqid(r, rch.Qqid)
-	if err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	gvgData, err := gvg_group.GetGvgGroupData(clanData.GvgId)
-	if err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	if gvgData == nil {
-		return errors.New(fmt.Sprintf("当前公会未开启公会战"))
-	}
-	if rch.IsContinue == 1 {
-		rch.Damage = gvgData.BossHp
-	}
-	if rch.Damage > gvgData.BossHp {
-		return errors.New(fmt.Sprintf("报刀伤害大于BOSS当前血量，请使用尾刀"))
-	}
-	// 每天5点刷新
-	dayTimeS := time2.GetPcrDayStartTimeToUnix(clanData.GameServer)
-	dayTimeE := time2.GetPcrDayEndTimeToUnix(clanData.GameServer)
-	// 获取今日刀，过滤尾刀
-	num, err := gvg_challenge.FindCount("qqid=? and gvg_id=? and is_continue=0 and challenge_time>=? and challenge_time<=?", rch.Qqid, clanData.GvgId, dayTimeS, dayTimeE)
-	if err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	if num >= 3 {
-		return errors.New(fmt.Sprintf("今日上报次数已达到3次"))
-	}
-	var challengeTime int
-
-	// 刀是否加入到昨日
-	if rch.IsYesterday == 1 {
-		challengeTime = int(dayTimeS - 1)
-	} else {
-		challengeTime = int(time.Now().Unix())
-	}
-	gvgChallenge := gvg_challenge.Entity{
-		Qqid:            rch.Qqid,
-		GvgId:           clanData.GvgId,
-		ClanGroupId:     clanData.GroupId,
-		AgentQqid:       agentQqid,
-		ChallengeDamage: rch.Damage,
-		IsContinue:      rch.IsContinue,
-		Message:         rch.Message,
-		ChallengeTime:   challengeTime,
-	}
-	if _, err := gvg_challenge.Model.FieldsEx("challenge_id").Insert(gvgChallenge); err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	// BOSS数据计算刷新
-	if err := BossHpCount(clanData.GvgId, clanData.GameServer); err != nil {
-		return errors.New(fmt.Sprintf("报刀成功，但BOSS血量修改失败"))
-	}
-	return nil
+type GetAllChallengeInput struct {
+	List    []*gvg_challenge.Entity `json:"list"`
+	TimeStr string                  `json:"timeStr"`
 }
 
-// 撤销指定成员一刀
-func BackCauseHarm(r *ghttp.Request, qqid int) error {
-	if qqid == 0 {
-		qqid = user.GetLoginData2(r).Qqid
-	}
-	clanData, err := clan.GetClanDataAtQqid(r, qqid)
+func GetAllChallenge(r *ghttp.Request, clanGroupId int, timeType string, startTime string, endTime string) (*GetAllChallengeInput, error) {
+	clanGroup, err := check.GetClanGroupAndChack(clanGroupId)
 	if err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
+		return nil, err
 	}
-	causeHarmLostAtMember, err := GetCauseHarmLostAtMember(r, qqid)
-	if err != nil {
-		return err
-	}
-	if causeHarmLostAtMember == nil {
-		return errors.New(fmt.Sprintf("无出刀记录"))
-	}
-
-	dayTimeS := time2.GetPcrDayStartTimeToUnix(clanData.GameServer)
-	dayTimeE := time2.GetPcrDayEndTimeToUnix(clanData.GameServer)
-	if _, err := gvg_challenge.Model.Limit(1).Order("challenge_time dec").Delete("qqid=? and time>? and time<? and gvg_id=?", qqid, dayTimeS, dayTimeE, clanData.GvgId); err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	// BOSS数据计算刷新
-	if err := BossHpCount(clanData.GvgId, clanData.GameServer); err != nil {
-		return errors.New(fmt.Sprintf("报刀成功，但BOSS血量修改失败"))
-	}
-	return nil
-}
-
-// 撤销最近一刀
-func BackCauseHarmLost(r *ghttp.Request, qqid int) error {
-	if qqid == 0 {
-		qqid = user.GetLoginData2(r).Qqid
-	}
-	clanData, err := clan.GetClanDataAtQqid(r, qqid)
-	if err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	causeHarmLost, err := GetCauseHarmLost(r, qqid)
-	if err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	if causeHarmLost == nil {
-		return errors.New(fmt.Sprintf("无出刀数据"))
-	}
-	dayTimeS := time2.GetPcrDayStartTimeToUnix(clanData.GameServer)
-	dayTimeE := time2.GetPcrDayEndTimeToUnix(clanData.GameServer)
-	if _, err := gvg_challenge.Model.Limit(1).Order("challenge_time dec").Delete("time>? and time<? and gvg_id=?", dayTimeS, dayTimeE, clanData.GvgId); err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	// BOSS数据计算刷新
-	if err := BossHpCount(clanData.GvgId, clanData.GameServer); err != nil {
-		return errors.New(fmt.Sprintf("报刀成功，但BOSS血量修改失败"))
-	}
-	return nil
-}
-
-// 获取最近一刀
-func GetCauseHarmLost(r *ghttp.Request, qqid int) (*gvg_challenge.Entity, error) {
-	if qqid == 0 {
-		qqid = user.GetLoginData2(r).Qqid
-	}
-	clanData, err := clan.GetClanDataAtQqid(r, qqid)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("内部错误"))
-	}
-	dayTimeS := time2.GetPcrDayStartTimeToUnix(clanData.GameServer)
-	dayTimeE := time2.GetPcrDayEndTimeToUnix(clanData.GameServer)
-	gvgChallenge, err := gvg_challenge.Model.Limit(1).Order("challenge_time dec").FindOne("time>? and time<? and gvg_id=?", dayTimeS, dayTimeE, clanData.GvgId)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("内部错误"))
-	}
-	return gvgChallenge, nil
-}
-
-// 获取指定成员最近一刀
-func GetCauseHarmLostAtMember(r *ghttp.Request, qqid int) (*gvg_challenge.Entity, error) {
-	if qqid == 0 {
-		qqid = user.GetLoginData2(r).Qqid
-	}
-	clanData, err := clan.GetClanDataAtQqid(r, qqid)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("内部错误"))
-	}
-	dayTimeS := time2.GetPcrDayStartTimeToUnix(clanData.GameServer)
-	dayTimeE := time2.GetPcrDayEndTimeToUnix(clanData.GameServer)
-	gvgChallenge, err := gvg_challenge.Model.Limit(1).Order("challenge_time dec").FindOne("qqid=? and time>? and time<? and gvg_id=?", qqid, dayTimeS, dayTimeE, clanData.GvgId)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("内部错误"))
-	}
-	return gvgChallenge, nil
-}
-
-// 补刀调血
-func ChangeBossHp(r *ghttp.Request, qqid int, hp int) error {
-	if qqid == 0 {
-		qqid = user.GetLoginData2(r).Qqid
-	}
-	// 查询公会信息
-	clanData, err := clan.GetClanDataAtQqid(r, qqid)
-	if err != nil {
-		return err
-	}
-	gvgData, err := gvg_group.GetGvgGroupData(clanData.GvgId)
-	if err != nil {
-		return err
-	}
-	if gvgData == nil {
-		return errors.New(fmt.Sprintf("当前公会未开启公会战"))
-	}
-	damage := hp - gvgData.BossHp
-	gvgChallenge := gvg_challenge.Entity{
-		GvgId:           clanData.GvgId,
-		ClanGroupId:     clanData.GroupId,
-		ChallengeDamage: damage,
-		RepairType:      1,
-		IsContinue:      0,
-		Message:         "补刀，BOSS血量调整",
-		ChallengeTime:   int(time.Now().Unix()),
-	}
-	if err := gvg_challenge.ReportChallenge(gvgChallenge); err != nil {
-		return err
-	}
-
-	// BOSS数据计算刷新
-	if err := BossHpCount(clanData.GvgId, clanData.GameServer); err != nil {
-		return errors.New(fmt.Sprintf("报刀成功，但BOSS血量修改失败"))
-	}
-	return nil
-}
-
-// 计算BOSS当前周目和血量  CN 国服, TW 台服, JP 日服, KR 韩服
-func BossHpCount(gvgid int, gameServer string) error {
-	var cycle, bossNum, nowBossHp int
-	bossNum = 1
-	cycle = 1
-	entity, err := gvg_challenge.GetAllChallengeAndRepair(gvgid)
-	if err != nil {
-		return err
-	}
-	var nowBossAllDamage [100][5]int
-	for _, v := range entity {
-		nowBossAllDamage[v.BossCycle-1][v.BossNum-1] += +v.ChallengeDamage
-		if v.IsContinue == 1 {
-			bossNum++
-			if bossNum == 6 {
-				bossNum = 1
-				cycle++
-			}
-		} else if v.RepairType == 2 {
-			cycle = v.RepairCycle
-		} else if v.RepairType == 3 {
-			bossNum = v.RepairNum
+	var timeS, timeE int64
+	switch timeType {
+	case "day":
+		timeS = time2.GetPcrDayStartTimeToUnix(clanGroup.GameServer)
+		timeE = time2.GetPcrDayEndTimeToUnix(clanGroup.GameServer)
+	case "yesterday":
+		timeS = time2.GetPcrYesterdayStartTimeToUnix(clanGroup.GameServer)
+		timeE = time2.GetPcrYesterdayEndTimeToUnix(clanGroup.GameServer)
+	case "all":
+		timeS = 0
+		timeE = time2.GetPcrDayEndTimeToUnix(clanGroup.GameServer)
+	case "time":
+		timeS = time2.GetPcrStartTimeToUnixAtStr(clanGroup.GameServer, startTime)
+		if endTime != "" {
+			timeE = time2.GetPcrEndTimeToUnixAtStr(clanGroup.GameServer, endTime)
+		} else {
+			timeE = timeS
 		}
+		timeE = timeE + 24*60*60
+
+	default:
+		// 默认今日刀
+		timeS = time2.GetPcrDayStartTimeToUnix(clanGroup.GameServer)
+		timeE = time2.GetPcrDayEndTimeToUnix(clanGroup.GameServer)
 	}
-	gvgBossData := boss_data.GetBossHpList(gameServer, cycle)
-	nowBossHp = gvgBossData[bossNum-1] - nowBossAllDamage[cycle-1][bossNum-1]
-	if err = gvg_group.UpdateGvgBossData(gvgid, cycle, bossNum, nowBossHp); err != nil {
-		return err
+	gvgChallenges, err := gvg_challenge.GetAllChallengeAtTime(clanGroup.GvgId, timeS, timeE)
+	if err != nil {
+		return nil, err
 	}
-	return err
+	allChallengeInput := &GetAllChallengeInput{
+		List:    gvgChallenges,
+		TimeStr: time2.GetTimeAtUnixToZone(clanGroup.GameServer, timeS).Format("2006-01-02"),
+	}
+	return allChallengeInput, nil
 }
 
-// 获取公会战信息 通过公会组ID
-func GetGvgGroupDataAtGroupId(groupID int) (*gvg_group.Entity, error) {
-	clanGroup, err := clan_group.FindOne("group_id", groupID)
+func GetAllSlState(r *ghttp.Request, clanGroupId int, TimeType string) (*[]gvg_member_extra.GetAllSlStateEntity, error) {
+	clanGroup, err := check.GetClanGroupAndChack(clanGroupId)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("内部错误"))
+		return nil, err
+	}
+	var timeS, timeE int64
+	switch TimeType {
+	case "day":
+		timeS = time2.GetPcrDayStartTimeToUnix(clanGroup.GameServer)
+		timeE = time2.GetPcrDayEndTimeToUnix(clanGroup.GameServer)
+	case "yesterday":
+		timeS = time2.GetPcrYesterdayStartTimeToUnix(clanGroup.GameServer)
+		timeE = time2.GetPcrYesterdayEndTimeToUnix(clanGroup.GameServer)
+	case "":
+		// 默认所有刀
+		timeS = 0
+		timeE = time2.GetPcrDayEndTimeToUnix(clanGroup.GameServer)
+	default:
+		timeS = time2.GetPcrStartTimeToUnixAtStr(clanGroup.GameServer, TimeType)
+		timeE = time2.GetPcrEndTimeToUnixAtStr(clanGroup.GameServer, TimeType)
+	}
+
+	allSlState, err := gvg_member_extra.GetAllSlState(clanGroup.GvgId, timeS, timeE)
+	if err != nil {
+		return nil, err
+	}
+	return allSlState, nil
+
+}
+
+// 公会战信息
+type GetClanGvgData struct {
+	GroupId   int       `orm:"group_id"      json:"group_id"`
+	GroupName string    `orm:"group_name"    json:"group_name"`
+	ClanGroup ClanGroup `orm:"clan_group"      json:"clan_group"`
+	GvgGroup  GvgGroup  `orm:"gvg_group"      json:"gvg_group"`
+}
+
+// Entity is the golang structure for table clan_group.
+type ClanGroup struct {
+	GroupId      int    `orm:"group_id"      json:"group_id"`      //
+	GroupName    string `orm:"group_name"    json:"group_name"`    //
+	Privacy      int    `orm:"privacy"       json:"privacy"`       //
+	CreatorQqid  int64  `orm:"creator_qqid"  json:"creator_qqid"`  //
+	GameServer   string `orm:"game_server"   json:"game_server"`   //
+	Notification string `orm:"notification"  json:"notification"`  //
+	GvgId        int    `orm:"gvg_id"        json:"gvg_id"`        //
+	BindQqGroup  int64  `orm:"bind_qq_group" json:"bind_qq_group"` //
+}
+
+// Entity is the golang structure for table gvg_group.
+type GvgGroup struct {
+	GvgId              int    `orm:"gvg_id"               json:"gvg_id"`               //
+	GroupId            int    `orm:"group_id"             json:"group_id"`             //
+	CreateQqid         int64  `orm:"create_qqid"          json:"create_qqid"`          //
+	GameServer         string `orm:"game_server"          json:"game_server"`          //
+	GvgName            string `orm:"gvg_name"             json:"gvg_name"`             //
+	BossCycle          int    `orm:"boss_cycle"           json:"boss_cycle"`           //
+	BossNum            int    `orm:"boss_num"             json:"boss_num"`             //
+	BossHp             int    `orm:"boss_hp"              json:"boss_hp"`              //
+	BossFullHp         int    `orm:"boss_full_hp"         json:"boss_full_hp"`         //
+	BossLockQqid       int64  `orm:"boss_lock_qqid"       json:"boss_lock_qqid"`       //
+	BossLockType       int    `orm:"boss_lock_type"       json:"boss_lock_type"`       //
+	BossLockMsg        string `orm:"boss_lock_msg"        json:"boss_lock_msg"`        //
+	BossLockTime       int64  `orm:"boss_lock_time"       json:"boss_lock_time"`       //
+	ChallengeStratTime int64  `orm:"challenge_strat_time" json:"challenge_strat_time"` //
+	ChallengeStratQqid int64  `orm:"challenge_strat_qqid" json:"challenge_strat_qqid"` //
+	GvgStartTime       int64  `orm:"gvg_start_time"       json:"gvg_start_time"`       //
+	GvgEndTime         int64  `orm:"gvg_end_time"         json:"gvg_end_time"`         //
+}
+
+func GetClanGvg(r *ghttp.Request, clanGroupID int) (*GetClanGvgData, error) {
+	qqid := user.GetLoginData2(r).Qqid
+	clan_member.Login(qqid, clanGroupID, r.GetClientIp())
+
+	getClanGvgData := new(GetClanGvgData)
+	clanGroup, err := check.GetClanGroupAndChack(clanGroupID)
+	if err != nil {
+		return nil, err
+	}
+	// BossHpCount(getClanGvgData.GroupId, clanGroup.GameServer)
+	getClanGvgData.GroupName = clanGroup.GroupName
+	getClanGvgData.GroupId = clanGroup.GroupId
+	if err := gconv.Struct(clanGroup, &getClanGvgData.ClanGroup); err != nil {
+		return nil, err
+	}
+	gvgGroup, err := gvg_group.GetGvgGroupData(clanGroup.GvgId)
+	if err != nil {
+		return nil, nil
+	}
+	if gvgGroup == nil {
+		return getClanGvgData, nil
+	}
+	if err := gconv.Struct(gvgGroup, &getClanGvgData.GvgGroup); err != nil {
+		return nil, err
+	}
+	return getClanGvgData, nil
+}
+
+// RemindChallenge 提醒出刀
+func RemindChallenge(r *ghttp.Request, clanGroupID int, QQIDlist []int64, Type int) error {
+	qqid := user.GetLoginData2(r).Qqid
+	clanGroup, err := check.GetClanGroupAndChack(clanGroupID)
+	if err != nil {
+		return err
 	}
 	if clanGroup == nil {
-		return nil, errors.New(fmt.Sprintf("公会组不存在"))
+		return errors.New("公会不存在")
 	}
-	return gvg_group.GetGvgGroupData(clanGroup.GvgId)
+	if !check.CheckAuthorityGroup(qqid, check.AuthGvgAdmin, clanGroup.GroupId) {
+		return errors.New("权限不足")
+	}
+	var msg string
+	qqGroupID := clanGroup.BindQqGroup
+	if Type == 2 {
+		for _, qqid := range QQIDlist {
+			msg += fmt.Sprintf("%s\n", bot.GetAtQQStr(qqid))
+		}
+		if Type == 0 {
+			Type = 2
+		}
+		clanMember, _ := clan_member.GetClanMember(qqid, clanGroup.GroupId)
+		if clanMember != nil {
+			msg += fmt.Sprintf("=======\n%s提醒您及时完成今日出刀", clanMember.GameName)
+		} else {
+			msg += fmt.Sprintf("=======\n%d提醒您及时完成今日出刀", qqid)
+		}
+		bot.Send(qqGroupID, Type, msg)
+		return nil
+	}
+	userData := bot.GetGroupUserData(qqGroupID, qqid)
+	if userData != nil {
+		msg = fmt.Sprintf("%s提醒您及时完成今日出刀", userData.NickName)
+	} else {
+		msg = fmt.Sprintf("%d提醒您及时完成今日出刀", qqid)
+	}
+	for _, qqid := range QQIDlist {
+		bot.Send(qqid, Type, msg)
+	}
+	return nil
 }
 
-// 申请出道(刀)
-func ApplyChallenge(r *ghttp.Request, qqid int) error {
-	if qqid == 0 {
-		qqid = user.GetLoginData2(r).Qqid
-	}
-	clanData, err := clan.GetClanDataAtQqid(r, qqid)
-	if err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	isLook, err := gvg_group.BossIsLock(clanData.GvgId)
-	if err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	if isLook {
-		return errors.New(fmt.Sprintf("BOSS已锁定"))
-	}
-	gvgGroupData, err := GetGvgGroupDataAtGroupId(clanData.GroupId)
-	if err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	if gvgGroupData.ChallengeStratQqid != 0 {
-		return errors.New(fmt.Sprintf("申请失败，当前有人正在挑战BOSS"))
-	}
-	isUpTree, err := GetIsUpTree(r, qqid)
+type ChangeUserChallengeInput struct {
+	ChallengeId     int `v:"min:1#战斗ID不能为空"`
+	GroupId         int `v:"min:1#公会ID不能为空"`
+	ChallengeDamage int
+	BossCycle       string `v:"between:1,100#周期错误"`
+	BossNum         string `v:"between:1,5#BOSS序号错误"`
+	Meassage        string
+}
+
+// 修改成员战斗记录
+func ChangeUserChallenge(r *ghttp.Request, data ChangeUserChallengeInput) error {
+	qqid := user.GetLoginData2(r).Qqid
+	clanGroup, err := check.GetClanGroupAndChack(data.GroupId)
 	if err != nil {
 		return err
 	}
-	if isUpTree {
-		return errors.New(fmt.Sprintf("您在树上！无法继续申请出刀。请先下树！"))
-	}
-	if err = gvg_group.ApplyChallenge(qqid, gvgGroupData.GvgId); err != nil {
+	gvgChallenge, err := gvg_challenge.GetlUserChallengeAtId(data.ChallengeId)
+	if err != nil {
 		return err
 	}
+	if gvgChallenge == nil {
+		return errors.New("战斗数据不存在")
+	}
+	if qqid != gvgChallenge.Qqid && !check.CheckAuthorityGroup(qqid, check.AuthGvgAdmin, clanGroup.GroupId) {
+		return errors.New("权限不足")
+	}
+	err = gvg_challenge.ChangeUserChallenge(data.ChallengeId, data.ChallengeDamage, data.BossCycle, data.BossNum, data.Meassage)
+	if err != nil {
+		return err
+	}
+	bot.Send(clanGroup.BindQqGroup, 2, check.GetBossStateStr(data.GroupId))
 	return nil
 }
 
-// 取消申请出刀
-func CancelChallenge(r *ghttp.Request, qqid int) error {
-	if qqid == 0 {
-		qqid = user.GetLoginData2(r).Qqid
-	}
-	clanData, err := clan.GetClanDataAtQqid(r, qqid)
+// 修改成员战斗记录
+func DelUserChallenge(r *ghttp.Request, groupID int, challengeId int) error {
+	qqid := user.GetLoginData2(r).Qqid
+	clanGroup, err := check.GetClanGroupAndChack(groupID)
 	if err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
+		return err
 	}
-	gvgGroupData, err := GetGvgGroupDataAtGroupId(clanData.GroupId)
+	gvgChallenge, err := gvg_challenge.GetlUserChallengeAtId(challengeId)
 	if err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
+		return err
 	}
-	if gvgGroupData.ChallengeStratQqid == 0 {
-		return errors.New(fmt.Sprintf("取消失败，当前没有出刀"))
+	if qqid != gvgChallenge.Qqid && !check.CheckAuthorityGroup(qqid, check.AuthGvgAdmin, clanGroup.GroupId) {
+		return errors.New("权限不足")
 	}
-	if gvgGroupData.ChallengeStratQqid != qqid {
-		return errors.New(fmt.Sprintf("取消失败，权限不足，不能取消他人出刀。管理员请使用”解锁“"))
-	}
-	if err = gvg_group.CancelChallenge(gvgGroupData.GvgId); err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	return nil
-}
-
-func UnlChallenge(r *ghttp.Request, qqid int) error {
-	if qqid == 0 {
-		qqid = user.GetLoginData2(r).Qqid
-	}
-	clanData, err := clan.GetClanDataAtQqid(r, qqid)
+	err = gvg_challenge.DelUserChallenge(challengeId)
 	if err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
+		return err
 	}
-	gvgGroupData, err := GetGvgGroupDataAtGroupId(clanData.GroupId)
-	if err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	var authorityGroup int
-	if gvgGroupData.ChallengeStratQqid > 0 {
-		if gvgGroupData.ChallengeStratQqid != qqid {
-			authorityGroup, err = user.GetUserAuthorityGroup(r, qqid)
-			if err != nil {
-				return errors.New(fmt.Sprintf("内部错误"))
-			}
-			// 必须管理员权限才能取消别人出刀, 3分钟后谁都可以解锁
-			if authorityGroup <= 0 && int(time.Now().Unix())-gvgGroupData.ChallengeStratTime > 60*3 {
-				return errors.New(fmt.Sprintf("解锁失败，权限不足，不能解锁他人出刀。"))
-			}
-		}
-		if err = gvg_group.CancelChallenge(gvgGroupData.GvgId); err != nil {
-			return errors.New(fmt.Sprintf("内部错误"))
-		}
-	}
-	if authorityGroup <= 0 {
-		return errors.New(fmt.Sprintf("解锁失败，权限不足。"))
-	}
-
-	if err = gvg_group.UnLockBoss(gvgGroupData.GvgId); err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	return nil
-}
-
-//  报告今日SL;
-func ReportDaySL(r *ghttp.Request, qqid int, state int) error {
-	//var agentQqid int
-	if qqid == 0 {
-		qqid = user.GetLoginData2(r).Qqid
-	} else {
-		// agentQqid = qqid
-	}
-	if isSL, err := GetDaySL(r, qqid); err != nil || isSL {
-		if isSL {
-			return errors.New(fmt.Sprintf("今日已SL过"))
-		}
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	return nil //gvg_member_extra.ReportMemberExtra(qqid, agentQqid, 1)
-}
-
-// 取消SL
-func CancelDaySL(r *ghttp.Request, qqid int, state int) error {
-	if qqid == 0 {
-		qqid = user.GetLoginData2(r).Qqid
-	}
-	if isSL, err := GetDaySL(r, qqid); err != nil || !isSL {
-		if !isSL {
-			return errors.New(fmt.Sprintf("今日未sl"))
-		}
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	clanData, err := clan.GetClanDataAtQqid(r, qqid)
-	if err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	dayTimeS := time2.GetPcrDayStartTimeToUnix(clanData.GameServer)
-	dayTimeE := time2.GetPcrDayEndTimeToUnix(clanData.GameServer)
-	return CancelMemberExtra(qqid, 1, int(dayTimeS), int(dayTimeE))
-}
-
-// 获取是今日否SL;
-func GetDaySL(r *ghttp.Request, qqid int) (bool, error) {
-	if qqid == 0 {
-		qqid = user.GetLoginData2(r).Qqid
-	}
-	clanData, err := clan.GetClanDataAtQqid(r, qqid)
-	if err != nil {
-		return false, errors.New(fmt.Sprintf("内部错误"))
-	}
-	dayTimeS := time2.GetPcrDayStartTimeToUnix(clanData.GameServer)
-	dayTimeE := time2.GetPcrDayEndTimeToUnix(clanData.GameServer)
-	return gvg_member_extra.GetMemberExtra(qqid, 1, int(dayTimeS), int(dayTimeE))
-}
-
-//  报告挂树
-func ReportUPTree(r *ghttp.Request, qqid int) error {
-	//var agentQqid int
-	if qqid == 0 {
-		qqid = user.GetLoginData2(r).Qqid
-	} else {
-		//agentQqid = qqid
-	}
-	if isUpTree, err := GetIsUpTree(r, qqid); err != nil || isUpTree {
-		if isUpTree {
-			return errors.New(fmt.Sprintf("您已在树上！"))
-		}
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	return nil // gvg_member_extra.ReportMemberExtra(qqid, agentQqid, 2)
-}
-
-// 获取是当前是否挂树;
-func GetIsUpTree(r *ghttp.Request, qqid int) (bool, error) {
-	if qqid == 0 {
-		qqid = user.GetLoginData2(r).Qqid
-	}
-	clanData, err := clan.GetClanDataAtQqid(r, qqid)
-	if err != nil {
-		return false, errors.New(fmt.Sprintf("内部错误"))
-	}
-	dayTimeE := time2.GetNowTimeToZone(clanData.GameServer).Unix()
-	// 挂树最长时间为1小时
-	dayTimeS := dayTimeE - 60*60
-	return gvg_member_extra.GetMemberExtra(qqid, 2, int(dayTimeS), int(dayTimeE))
-}
-
-//  报告下树 state==1 结算下树, state==2 BOSS死亡后下树
-func ReportDownTree(r *ghttp.Request, qqid int, state int) error {
-	if qqid == 0 {
-		qqid = user.GetLoginData2(r).Qqid
-	}
-	if isUpTree, err := GetIsUpTree(r, qqid); err != nil || !isUpTree {
-		if !isUpTree {
-			return errors.New(fmt.Sprintf("您未已在树上"))
-		}
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	clanData, err := clan.GetClanDataAtQqid(r, qqid)
-	if err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	dayTimeE := time2.GetNowTimeToZone(clanData.GameServer).Unix()
-	// 挂树最长时间为1小时
-	dayTimeS := dayTimeE - 60*60
-	return SetMemberExtraState(qqid, state, 2, int(dayTimeS), int(dayTimeE))
-}
-
-// 设置公会成员额外数据状态
-func SetMemberExtraState(qqid int, state int, etype int, dayTimeS int, dayTimeE int) error {
-	if _, err := gvg_member_extra.Model.Limit(1).Order("time dec").Update(
-		g.Map{
-			"state": state,
-		}, "qqid=? and time>? and time<? and type=? and state=0", qqid, dayTimeS, dayTimeE, etype); err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
-	return nil
-}
-
-// 清除公会成员额外数据、如 SL/挂树
-func CancelMemberExtra(qqid int, etype int, dayTimeS int, dayTimeE int) error {
-	if _, err := gvg_member_extra.Model.Limit(1).Order("time dec").Delete("qqid=? and time>? and time<? and type=? and state=0", qqid, dayTimeS, dayTimeE, etype); err != nil {
-		return errors.New(fmt.Sprintf("内部错误"))
-	}
+	bot.Send(clanGroup.BindQqGroup, 2, check.GetBossStateStr(groupID))
 	return nil
 }
